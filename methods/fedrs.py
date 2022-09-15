@@ -14,6 +14,7 @@ import random
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
+        client_dict["model_paras"].update({"KD":True})
         self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
@@ -29,7 +30,7 @@ class Client(Base_Client):
 
         for client,info in self.client_infos.items():
             cnts = []
-            for c in range(10):
+            for c in range(self.num_classes):
                 if c in info.keys():
                     num = info[c]
                 else:
@@ -68,7 +69,7 @@ class Client(Base_Client):
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
                 hs,_ = self.model(images)
-                ws = self.model.out.weight
+                ws = self.model.fc.weight
 
                 logits = cidst * hs.mm(ws.transpose(0, 1))
                 loss = self.criterion(logits, labels)

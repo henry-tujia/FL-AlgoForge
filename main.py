@@ -2,6 +2,7 @@
 Main file to set up the FL system and train
 Code design inspired by https://github.com/FedML-AI/FedML
 '''
+import re
 import torch
 import numpy as np
 import random
@@ -23,7 +24,7 @@ from models.resnet_rs import resnet_client as resnet_rs_client
 from models.preresnet import preresnet20 as preresnet
 from models.densenet import densenet100bc as densenet
 from models.alexnet import alexnet as alexnet
-from models.resnet_model import resnet56 as resnet
+from models.resnet_model import resnet32 as resnet
 
 from torch.multiprocessing import set_start_method, Queue
 import logging
@@ -260,7 +261,6 @@ if __name__ == "__main__":
     elif args.method == 'moon':
         Server = moon.Server
         Client = moon.Client
-        Model = resnet_nonlocal_server
         if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
             input_nc = 1 if args.dataset == "femnist" else 3
             feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
@@ -268,8 +268,17 @@ if __name__ == "__main__":
             net_mode = 'resnet'
             in_channels = 4
             numclass = 10
-        model_paras = {
-            "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass, "KD":True, "projection":True
+            Model = resnet_nonlocal_server
+            model_paras = {
+                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+            }
+
+        elif args.dataset == "cifar100":
+            Model = resnet
+            numclass = 100
+            model_paras = { 
+            "num_classes": numclass,
+            "KD":True
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
@@ -378,8 +387,6 @@ if __name__ == "__main__":
     elif args.method == 'fedrs':
         Server = fedrs.Server
         Client = fedrs.Client
-        Model_server = resnet_rs_server
-        Model_client = resnet_rs_client
 
         if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
             input_nc = 1 if args.dataset == "femnist" else 3
@@ -388,15 +395,21 @@ if __name__ == "__main__":
             net_mode = 'resnet'
             in_channels = 4
             numclass = 10
+            Model = resnet_nonlocal_server
+            model_paras = {
+                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+            }
+
         elif args.dataset == "cifar100":
+            Model = resnet
             numclass = 100
-        model_paras = {
-            "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+            model_paras = { 
+            "num_classes": numclass
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model_server, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model_client, 'model_paras': model_paras, 'num_classes':numclass, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass, "client_infos":client_infos, "alpha":0.1
                         } for i in range(args.thread_number)]
 
     else:
@@ -407,7 +420,7 @@ if __name__ == "__main__":
    
     wandb.init(
     project="FedTH",
-    group = args.method+"_preresnet",
+    group = args.method, #+"_preresnet"
     entity = "henrytujia",
     job_type = args.experi)
 

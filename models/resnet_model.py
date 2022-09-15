@@ -85,7 +85,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, depth, num_classes, block_name="BasicBlock"):
+    def __init__(self, depth, num_classes, block_name="BasicBlock",KD = False):
         super(ResNet, self).__init__()
         # Model type specifies number of layers for CIFAR-10 model
         if block_name == "BasicBlock":
@@ -112,6 +112,7 @@ class ResNet(nn.Module):
         self.stage_3 = self._make_layer(block, 64, n, stride=2)
         self.avgpool = nn.AvgPool2d(8)
         self.fc = nn.Linear(64 * block.expansion, num_classes)
+        self.KD = KD
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -154,17 +155,18 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
-
-        return x
+        logits = self.fc(x)
+        if self.KD:
+            return x,logits
+        return logits
 
 
 def resnet20(num_classes):
     return ResNet(depth=20, num_classes=num_classes)
 
 
-def resnet32(num_classes):
-    return ResNet(depth=32, num_classes=num_classes)
+def resnet32(num_classes,KD=False):
+    return ResNet(depth=32, num_classes=num_classes,KD=KD)
 
 
 def resnet44(num_classes):

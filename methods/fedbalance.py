@@ -66,7 +66,7 @@ class Client(Base_Client):
         client_dis = self.client_cnts[idx]
 
         dist = client_dis / client_dis.sum() #个数的比例
-        cdist = dist# / dist.max()
+        cdist = dist/ dist.max()# 
         # cdist = cdist * (1.0 - self.args.alpha) + self.args.alpha
         cdist = cdist.reshape((1, -1))
 
