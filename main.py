@@ -19,8 +19,7 @@ from models.resnet_fednonlocal import resnet_nonlocal
 from models.resnet_fednonlocal import resnet as resnet_nonlocal_server
 from models.resnet_balance import resnet_fedbalance
 from models.resnet_balance import resnet_server as resnet_fedbalance_server
-from models.resnet_rs import resnet_server as resnet_rs_server
-from models.resnet_rs import resnet_client as resnet_rs_client
+from models.resnet_rs import resnet as resnet_rs
 from models.preresnet import preresnet20 as preresnet
 from models.densenet import densenet100bc as densenet
 from models.alexnet import alexnet as alexnet
@@ -387,6 +386,7 @@ if __name__ == "__main__":
     elif args.method == 'fedrs':
         Server = fedrs.Server
         Client = fedrs.Client
+        
 
         if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
             input_nc = 1 if args.dataset == "femnist" else 3
@@ -395,7 +395,7 @@ if __name__ == "__main__":
             net_mode = 'resnet'
             in_channels = 4
             numclass = 10
-            Model = resnet_nonlocal_server
+            Model = resnet_rs
             model_paras = {
                 "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
             }
@@ -416,7 +416,7 @@ if __name__ == "__main__":
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
 
-    os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
+    # os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
    
     wandb.init(
     project="FedTH",
