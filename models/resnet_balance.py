@@ -17,13 +17,6 @@ class resnet_fedbalance(nn.Module):
         self.projection_local = Classfier(feature_dim, 256, numclass)
         self.projection_new = Classfier(feature_dim, 256, numclass)
 
-        # self.projection_local = nn.Linear(feature_dim, numclass)
-        # self.projection_new = nn.Linear(feature_dim, numclass)
-
-        # self.out = nn.Sequential(
-        #     nn.Linear(numclass, numclass,bias=False)
-        # )
-
     def forward(self, x,distance):
         x_local = self.encoder_local(x)
         x_local = self.block(x_local)
@@ -37,20 +30,9 @@ class resnet_fedbalance(nn.Module):
         # logits_new = x_new.mm(self.projection_new.weight.transpose(0, 1))
         h_new = self.projection_new(x_new)
 
-        # temp = (1-distance)*h_local
-        # h_combine = temp + h_new
-
-
         h_combine = distance*h_local + h_new
 
-        # logits = self.out(h_combine)
-        # logits = logits_local+logits_new
-
         return h_combine
-
-    def change_paras(self):
-        self.encoder_local.load_state_dict(self.encoder_new.state_dict())
-        self.projection_local.load_state_dict(self.projection_new.state_dict())
 
 class resnet_server(nn.Module):
     def __init__(self, blocks=2, input_nc=3, feature_dim=784, net_mode='resnet', in_channels=4, numclass=10) -> None:

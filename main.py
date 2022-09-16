@@ -342,12 +342,6 @@ if __name__ == "__main__":
         Server = fedbalance.Server
         Client = fedbalance.Client
 
-
-
-        # # Model_server = resnet_fedbalance_server
-        # # Model_client = 
-        # Model = resnet_fedbalance_server
-
         if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
             input_nc = 1 if args.dataset == "femnist" else 3
             feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
@@ -386,8 +380,34 @@ if __name__ == "__main__":
     elif args.method == 'fedrs':
         Server = fedrs.Server
         Client = fedrs.Client
-        
+    
+        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
+            input_nc = 1 if args.dataset == "femnist" else 3
+            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
+            blocks = 10 if args.dataset == "cinic10" else 2
+            net_mode = 'resnet'
+            in_channels = 4
+            numclass = 10
+            Model = resnet_rs
+            model_paras = {
+                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+            }
 
+        elif args.dataset == "cifar100":
+            Model = resnet
+            numclass = 100
+            model_paras = { 
+            "num_classes": numclass
+        }
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass, "client_infos":client_infos, "alpha":0.1
+                        } for i in range(args.thread_number)]
+    elif args.method == 'fedrod':
+        Server = fedrs.Server
+        Client = fedrs.Client
+    
         if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
             input_nc = 1 if args.dataset == "femnist" else 3
             feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
@@ -416,7 +436,7 @@ if __name__ == "__main__":
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
 
-    # os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
+    os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
    
     wandb.init(
     project="FedTH",
