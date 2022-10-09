@@ -77,6 +77,39 @@ class Client(Base_Client):
         weights = {key:value for key,value in self.model.cpu().state_dict().items()}
         return weights
 
+    def test(self):
+
+        if len(self.acc_dataloader) == 0:
+            return 0
+            
+        cidst = self.get_cdist(self.client_index)
+        self.model.to(self.device)
+        self.model.eval()
+
+        test_correct = 0.0
+        # test_loss = 0.0
+        test_sample_number = 0.0
+        with torch.no_grad():
+            for batch_idx, (x, target) in enumerate(self.acc_dataloader):
+                x = x.to(self.device)
+                target = target.to(self.device)
+
+                hs,_ = self.model(x)
+                ws = self.model.fc.weight
+
+                logits = cidst * hs.mm(ws.transpose(0, 1))
+                # loss = self.criterion(pred, target)
+                _, predicted = torch.max(logits, 1)
+                correct = predicted.eq(target).sum()
+
+                test_correct += correct.item()
+                # test_loss += loss.item()
+                test_sample_number += target.size(0)
+            acc = (test_correct / test_sample_number)*100
+            logging.info(
+                "************* Client {} Acc = {:.2f} **************".format(self.client_index, acc))
+        return acc
+
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)

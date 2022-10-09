@@ -115,6 +115,41 @@ class Client(Base_Client):
         
         weights = {key:value for key,value in self.model.cpu().state_dict().items()}
         return weights
+
+    def test(self):
+
+        if len(self.acc_dataloader) == 0:
+            return 0
+            
+        self.model.to(self.device)
+        self.model.eval()
+
+        self.predictor.to(self.device)
+        self.predictor.eval()
+
+        test_correct = 0.0
+        # test_loss = 0.0
+        test_sample_number = 0.0
+        with torch.no_grad():
+            for batch_idx, (x, target) in enumerate(self.acc_dataloader):
+                x = x.to(self.device)
+                target = target.to(self.device)
+
+                feature, log_probs = self.model(x)
+                log_probs_pred = self.predictor(feature)
+
+                # loss = self.criterion(pred, target)
+                _, predicted = torch.max(log_probs_pred+log_probs, 1)
+                correct = predicted.eq(target).sum()
+
+                test_correct += correct.item()
+                # test_loss += loss.item()
+                test_sample_number += target.size(0)
+            acc = (test_correct / test_sample_number)*100
+            logging.info(
+                "************* Client {} Acc = {:.2f} **************".format(self.client_index, acc))
+        return acc
+    
     # https://github.com/jiawei-ren/BalancedMetaSoftmax-Classification
     def balanced_softmax_loss(self,labels, logits, sample_per_class, reduction="mean"):
         """Compute the Balanced Softmax Loss between `logits` and the ground truth `labels`.
