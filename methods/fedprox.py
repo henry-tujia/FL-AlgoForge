@@ -51,3 +51,4 @@ class Server(Base_Server):
     def __init__(self,server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(self.num_classes)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)

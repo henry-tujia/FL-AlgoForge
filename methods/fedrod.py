@@ -114,7 +114,7 @@ class Client(Base_Client):
                 logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(self.client_index,epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
         
         weights = {key:value for key,value in self.model.cpu().state_dict().items()}
-        return epoch_loss, weights
+        return weights
     # https://github.com/jiawei-ren/BalancedMetaSoftmax-Classification
     def balanced_softmax_loss(self,labels, logits, sample_per_class, reduction="mean"):
         """Compute the Balanced Softmax Loss between `logits` and the ground truth `labels`.
@@ -137,5 +137,5 @@ class Server(Base_Server):
         super().__init__(server_dict, args)
         self.model_server = self.model_type(**server_dict["model_paras"])
         self.model = resnet_fedbalance_server(self.model_server)
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 

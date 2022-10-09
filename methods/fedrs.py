@@ -44,9 +44,6 @@ class Client(Base_Client):
         cdist = cdist * (1.0 - self.alpha) + self.alpha
         cdist = cdist.reshape((1, -1))
 
-        # if torch.any(torch.isnan(cdist)):
-        #     logging.info("NaN Time:\n Data is {}\t, distance is {}\t, new dis is {}\t".format(client_dis,dist,cdist))
-    
         return cdist.to(self.device)
 
     def train(self): 
@@ -78,11 +75,11 @@ class Client(Base_Client):
         #此处交换参数以及输出新字典
         # self.model.change_paras()
         weights = {key:value for key,value in self.model.cpu().state_dict().items()}
-        return epoch_loss, weights
+        return weights
 
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(**server_dict["model_paras"])
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 

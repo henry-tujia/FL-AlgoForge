@@ -52,11 +52,11 @@ class Client(Base_Client):
         #此处交换参数以及输出新字典
         self.model.change_paras()
         weights = {key:value for key,value in self.model.cpu().state_dict().items() if key in self.upload_keys}
-        return epoch_loss, weights
+        return weights
 
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(**server_dict["model_paras"])
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 

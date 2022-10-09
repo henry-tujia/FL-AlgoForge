@@ -83,15 +83,6 @@ def add_args(parser):
 
     parser.add_argument('--mu', type=float, default=0.45, metavar='MU',
                         help='mu value for various methods')
-# 0.25
-    parser.add_argument('--width', type=float, default=0.25, metavar='WI',
-                        help='minimum width for subnet training')
-
-    parser.add_argument('--mult', type=float, default=1.0, metavar='MT',
-                        help='multiplier for subnet training')
-
-    parser.add_argument('--num_subnets', type=int, default=3,
-                        help='how many subnets sampled during training')
 
     parser.add_argument('--save_client', action='store_true', default=False,
                         help='Save client checkpoints each round')
@@ -102,11 +93,6 @@ def add_args(parser):
     parser.add_argument('--client_sample', type=float, default=0.1, metavar='MT',
                         help='Fraction of clients to sample')
 
-    parser.add_argument('--stoch_depth', default=0.5, type=float,
-                        help='stochastic depth probability')
-
-    parser.add_argument('--gamma', default=0.0, type=float,
-                        help='hyperparameter gamma for mixup')
     args = parser.parse_args()
 
     return args
@@ -230,11 +216,16 @@ if __name__ == "__main__":
     elif args.method == 'fedprox':
         Server = fedprox.Server
         Client = fedprox.Client
-        Model = resnet56 if 'cifar' in args.data_dir else resnet18
-        server_dict = {'train_data': train_data_global, 'test_data': test_data_global,
-                       'model_type': Model, 'num_classes': class_num}
-        client_dict = [{'train_data': train_data_local_dict, 'test_data': test_data_local_dict, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num} for i in range(args.thread_number)]
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        } for i in range(args.thread_number)]
     elif args.method == 'moon':
         Server = moon.Server
         Client = moon.Client
@@ -314,7 +305,7 @@ if __name__ == "__main__":
         project="FedTH",
         group=args.method,
         entity="henrytujia",
-        job_type=args.experi)
+        job_type="Bash Script")
 
     wandb.config.update(args)
 
@@ -341,16 +332,15 @@ if __name__ == "__main__":
         round_start = time.time()
         client_outputs = pool.map(run_clients, server_outputs)
         client_outputs = [c for sublist in client_outputs for c in sublist]
-        items = ["before_train_losses", "before_train_accs", "before_test_losses", "before_test_accs",
-                 "after_train_losses", "after_train_accs", "after_test_losses", "after_test_accs"]
+        # items = ["local_test_acc"]
 
-        res = np.array([x['results'] for x in client_outputs]).mean(axis=1)
+        res = np.array([x['results'] for x in client_outputs]).mean()
 
-        for item, data in zip(items, res):
-            wandb.log({item: data}, step=r)
-
-        server_outputs, [loss, acc] = server.run(client_outputs)
-        wandb.log({'global_test_loss': loss, 'global_test_acc': acc}, step=r)
+        # for item, data in zip(items, res):
+        #     wandb.log({item: data}, step=r)
+        wandb.log({"local_test_acc": res}, step=r)
+        server_outputs, acc = server.run(client_outputs)
+        wandb.log({'global_test_acc': acc}, step=r)
         round_end = time.time()
         logging.info('Round {} Time: {}s'.format(r, round_end-round_start))
     pool.close()

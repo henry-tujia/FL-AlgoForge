@@ -91,7 +91,7 @@ class Client(Base_Client):
         #     self.acc_dataloader = self.train_dataloader
         #     self.testAndplot(cidst)
         weights = {key:value for key,value in self.model.cpu().state_dict().items()}
-        return epoch_loss, weights
+        return weights
     
     def testAndplot(self,cidst):
 
@@ -132,4 +132,4 @@ class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(**server_dict["model_paras"])
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)

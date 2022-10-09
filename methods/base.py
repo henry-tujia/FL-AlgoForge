@@ -20,7 +20,7 @@ class Base_Client():
         self.client_index = None
         self.get_dataloader = client_dict['get_dataloader']
         self.before_val = False
-        self.after_val = False
+        self.after_val = True
         self.distances = None
         self.alpha = None
 
@@ -33,34 +33,20 @@ class Base_Client():
         client_results = []
         for client_idx in self.client_map[self.round]:
             self.load_client_state_dict(received_info)
-            # get_client_dataloader(args.datadir, args.batch_size, dict_client_idexes,train=False)
-            # train_dl_local, val_dl_local  = get_client_dataloader(args.datadir, args.local_bs, dict_client_idexes, client_idx = idx)
             self.train_dataloader, self.test_dataloader = self.get_dataloader(
                 self.args.datadir, self.args.batch_size, self.train_data, client_idx=client_idx, train=True)
-            # self.test_dataloader = self.test_data[client_idx]
             if self.args.client_sample < 1.0 and self.train_dataloader._iterator is not None and self.train_dataloader._iterator._shutdown:
                 self.train_dataloader._iterator = self.train_dataloader._get_iterator()
             self.client_index = client_idx
             num_samples = len(self.train_dataloader)*self.args.batch_size
-
-            if self.before_val:
-                self.acc_dataloader = self.train_dataloader
-                before_train_loss, before_train_acc = self.test()
-                self.acc_dataloader = self.test_dataloader
-                before_test_loss, before_test_acc = self.test()
-            else:
-                before_train_loss, before_train_acc,before_test_loss, before_test_acc = 0,0,0,0
-            epoch_loss, weights = self.train()
+            weights = self.train()
             if self.after_val:
-                self.acc_dataloader = self.train_dataloader
-                _, after_train_acc = self.test()
                 self.acc_dataloader = self.test_dataloader
-                after_test_loss, after_test_acc = self.test()
+                after_test_acc = self.test()
             else:
-                after_train_acc,after_test_loss, after_test_acc = 0,0,0
+                after_test_acc = 0
 
-            client_results.append({'weights': weights, 'num_samples': num_samples, 'results': [before_train_loss, before_train_acc, before_test_loss, before_test_acc, np.array(
-                epoch_loss).mean(), after_train_acc, after_test_loss, after_test_acc], 'client_index': self.client_index})
+            client_results.append({'weights': weights, 'num_samples': num_samples, 'results': after_test_acc, 'client_index': self.client_index})
             if self.args.client_sample < 1.0 and self.train_dataloader._iterator is not None:
                 self.train_dataloader._iterator._shutdown_workers()
 
@@ -88,14 +74,18 @@ class Base_Client():
                 logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(self.client_index,
                                                                                                              epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
         weights = self.model.cpu().state_dict()
-        return epoch_loss, weights
+        return weights
 
     def test(self):
+
+        if len(self.acc_dataloader) == 0:
+            return 0
+
         self.model.to(self.device)
         self.model.eval()
 
         test_correct = 0.0
-        test_loss = 0.0
+        # test_loss = 0.0
         test_sample_number = 0.0
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
@@ -103,17 +93,17 @@ class Base_Client():
                 target = target.to(self.device)
 
                 pred = self.model(x)
-                loss = self.criterion(pred, target)
+                # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 correct = predicted.eq(target).sum()
 
                 test_correct += correct.item()
-                test_loss += loss.item()
+                # test_loss += loss.item()
                 test_sample_number += target.size(0)
             acc = (test_correct / test_sample_number)*100
             logging.info(
                 "************* Client {} Acc = {:.2f} **************".format(self.client_index, acc))
-        return test_loss/len(self.acc_dataloader), acc
+        return acc
 
 
 class Base_Server():
@@ -130,14 +120,14 @@ class Base_Server():
 
     def run(self, received_info):
         server_outputs = self.operations(received_info)
-        loss, acc = self.test()
+        acc = self.test()
         self.log_info(received_info, acc)
         self.round += 1
         if acc > self.acc:
             torch.save(self.model.state_dict(),
                        '{}/{}.pt'.format(self.save_path, 'server'))
             self.acc = acc
-        return server_outputs, [loss, acc]
+        return server_outputs, acc
 
     def start(self):
         with open('{}/config.txt'.format(self.save_path), 'a+') as config:
@@ -145,7 +135,7 @@ class Base_Server():
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
 
     def log_info(self, client_info, acc):
-        client_acc = sum([c['results'][-1]
+        client_acc = sum([c['results']
                          for c in client_info])/len(client_info)
         out_str = 'Test/AccTop1: {}, Client_Train/AccTop1: {}, round: {}\n'.format(
             acc, client_acc, self.round)
@@ -162,7 +152,7 @@ class Base_Server():
         for key in ssd:
             ssd[key] = sum([sd[key]*cw[i] for i, sd in enumerate(client_sd)])
         self.model.load_state_dict(ssd)
-        if self.args.save_client:
+        if self.args.save_client and self.round == self.args.comm_round-1:
             for client in client_info:
                 torch.save(
                     client['weights'], '{}/client_{}.pt'.format(self.save_path, client['client_index']))
@@ -173,7 +163,7 @@ class Base_Server():
         self.model.eval()
 
         test_correct = 0.0
-        test_loss = 0.0
+        # test_loss = 0.0
         test_sample_number = 0.0
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(data):
@@ -181,17 +171,17 @@ class Base_Server():
                 target = target.to(self.device)
 
                 pred = self.model(x)
-                loss = self.criterion(pred, target)
+                # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 correct = predicted.eq(target).sum()
 
                 test_correct += correct.item()
-                test_loss += loss.item()
+                # test_loss += loss.item()
                 test_sample_number += target.size(0)
             acc = (test_correct / test_sample_number)*100
             # logging.info(
             #     "************* Server Acc = {:.2f} **************".format(acc))
-        return test_loss/len(data), acc, test_sample_number
+        return acc, test_sample_number
 
     def test_mutildata(self):
         res = []
@@ -210,7 +200,7 @@ class Base_Server():
         if isinstance(self.test_data, list):
             loss, acc = self.test_mutildata()
         else:
-            loss, acc, _ = self.test_inner(self.test_data)
+            acc, _ = self.test_inner(self.test_data)
         logging.info(
             "************* Server Acc = {:.2f} **************".format(acc))
-        return loss, acc
+        return acc
