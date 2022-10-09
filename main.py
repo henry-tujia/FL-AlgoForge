@@ -2,52 +2,41 @@
 Main file to set up the FL system and train
 Code design inspired by https://github.com/FedML-AI/FedML
 '''
-import re
-import torch
-import numpy as np
-import random
-import data_preprocessing.data_loader as dl
 import argparse
-from models.resnet import resnet56, resnet18
-from models.resnet_gradaug import resnet56 as resnet56_gradaug
-from models.resnet_gradaug import resnet18 as resnet18_gradaug
-from models.resnet_stochdepth import resnet56 as resnet56_stochdepth
-from models.resnet_stochdepth import resnet18 as resnet18_stochdepth
-from models.resnet_fedalign import resnet56 as resnet56_fedalignw
-from models.resnet_fedalign import resnet18 as resnet18_fedalign
-from models.resnet_fednonlocal import resnet_nonlocal
-from models.resnet_fednonlocal import resnet as resnet_nonlocal_server
-from models.resnet_balance import resnet_fedbalance
-from models.resnet_balance import resnet_server as resnet_fedbalance_server
-from models.resnet_rs import resnet as resnet_rs
-from models.preresnet import preresnet20 as preresnet
-from models.densenet import densenet100bc as densenet
-from models.alexnet import alexnet as alexnet
-from models.resnet_model import resnet32 as resnet
-
-from torch.multiprocessing import set_start_method, Queue
 import logging
 import os
-from collections import defaultdict
+import random
+import re
+import sys
 import time
+from collections import defaultdict
+
+import numpy as np
+import torch
+from torch.multiprocessing import Queue, set_start_method
+
+import data_preprocessing.custom_multiprocess as cm
+import methods.fedavg as fedavg
+import methods.fedbalance as fedbalance
+import methods.fedclear as fedclear
+import methods.fednonlocal as fednonlocal
+import methods.fedprox as fedprox
+import methods.fedrs as fedrs
+import methods.moon as moon
+
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
+from models.alexnet import alexnet as alexnet
+from models.preresnet import preresnet20 as preresnet
+
+# from models.resnet_model import resnet32 as resnet
+from models.resnet_model import resnet8 as resnet8
+from models.resnet_model import resnet20 as resnet
+
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 # methods
-import methods.fedavg as fedavg
-import methods.gradaug as gradaug
-import methods.fedprox as fedprox
-import methods.moon as moon
-import methods.stochdepth as stochdepth
-import methods.mixup as mixup
-import methods.fedalign as fedalign
-import methods.fednonlocal as fednonlocal
-import methods.fedbalance as fedbalance
-import methods.fedrs as fedrs
-import data_preprocessing.custom_multiprocess as cm
-import sys
 sys.path.append('/mnt/data/th')
 
 
@@ -174,6 +163,14 @@ def allocate_clients_to_threads(args):
     return mapping_dict
 
 
+def init_net():
+    if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
+        Model = resnet8
+    elif args.dataset == "cifar100":
+        Model = resnet
+    return Model
+
+
 if __name__ == "__main__":
     try:
         set_start_method('spawn')
@@ -188,20 +185,25 @@ if __name__ == "__main__":
     args.datadir = os.path.join(root_path, "dataset", args.dataset)
 
     if args.dataset == "cifar10":
-        from FedML.fedml_api.data_preprocessing.cifar10.data_loader import get_client_idxes_dict, get_client_dataloader
+        from FedML.fedml_api.data_preprocessing.cifar10.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "cifar100":
-        from FedML.fedml_api.data_preprocessing.cifar100.data_loader import get_client_idxes_dict, get_client_dataloader
+        from FedML.fedml_api.data_preprocessing.cifar100.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "cinic10":
-        from FedML.fedml_api.data_preprocessing.cinic10.data_loader import get_client_idxes_dict, get_client_dataloader
+        from FedML.fedml_api.data_preprocessing.cinic10.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "imagenet":
-        from FedML.fedml_api.data_preprocessing.ImageNet.data_loader import get_client_idxes_dict, get_client_dataloader
+        from FedML.fedml_api.data_preprocessing.ImageNet.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "emnist":
-        from FedML.fedml_api.data_preprocessing.emnist.data_loader import get_client_idxes_dict, get_client_dataloader
+        from FedML.fedml_api.data_preprocessing.emnist.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "svhn":
-        from utils.utils import get_client_idxes_dict, get_client_dataloader
+        from utils.utils import get_client_dataloader, get_client_idxes_dict
     elif "feature" in args.dataset:
-        from FedTH.data.digits_feature import get_client_idxes_dict, get_client_dataloader
-
+        from FedTH.data.digits_feature import (get_client_dataloader,
+                                               get_client_idxes_dict)
 
     dict_client_idexes, class_num, client_infos = get_client_idxes_dict(
         args.datadir, args.partition_method, args.partition_alpha, args.client_number)
@@ -214,41 +216,17 @@ if __name__ == "__main__":
         Server = fedavg.Server
         Client = fedavg.Client
 
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
-            Model = resnet_nonlocal_server
-            model_paras = {
-                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
-            }
-
-        elif args.dataset == "cifar100":
-            Model = resnet
-            numclass = 100
-            model_paras = {
-            "num_classes": numclass
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
         }
+
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
                         } for i in range(args.thread_number)]
-    elif args.method == 'gradaug':
-        Server = gradaug.Server
-        Client = gradaug.Client
-        Model = resnet56_gradaug if 'cifar' in args.data_dir else resnet18_gradaug
-        width_range = [args.width, 1.0]
-        resolutions = [32, 28, 24, 20] if 'cifar' in args.data_dir else [
-            224, 192, 160, 128]
-        server_dict = {'train_data': train_data_global, 'test_data': test_data_global,
-                       'model_type': Model, 'num_classes': class_num}
-        client_dict = [{'train_data': train_data_local_dict, 'test_data': test_data_local_dict, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num,
-                        'width_range': width_range, 'resolutions': resolutions} for i in range(args.thread_number)]
+
     elif args.method == 'fedprox':
         Server = fedprox.Server
         Client = fedprox.Client
@@ -260,176 +238,70 @@ if __name__ == "__main__":
     elif args.method == 'moon':
         Server = moon.Server
         Client = moon.Client
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
-            Model = resnet_nonlocal_server
-            model_paras = {
-                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
-            }
-
-        elif args.dataset == "cifar100":
-            Model = resnet
-            numclass = 100
-            model_paras = { 
-            "num_classes": numclass,
-            "KD":True
-        }
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass
-                        } for i in range(args.thread_number)]
-        # Model = resnet56 if 'cifar' in args.data_dir else resnet18
-        # server_dict = {'train_data': train_data_global, 'test_data': test_data_global,
-        #                'model_type': Model, 'num_classes': class_num}
-        # client_dict = [{'train_data': train_data_local_dict, 'test_data': test_data_local_dict, 'device': i % torch.cuda.device_count(),
-        #                 'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num} for i in range(args.thread_number)]
-    elif args.method == 'stochdepth':
-        Server = stochdepth.Server
-        Client = stochdepth.Client
-        Model = resnet56_stochdepth if 'cifar' in args.data_dir else resnet18_stochdepth
-        server_dict = {'train_data': train_data_global, 'test_data': test_data_global,
-                       'model_type': Model, 'num_classes': class_num}
-        client_dict = [{'train_data': train_data_local_dict, 'test_data': test_data_local_dict, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num} for i in range(args.thread_number)]
-    elif args.method == 'mixup':
-        Server = mixup.Server
-        Client = mixup.Client
-        Model = resnet56 if 'cifar' in args.data_dir else resnet18
-        server_dict = {'train_data': train_data_global, 'test_data': test_data_global,
-                       'model_type': Model, 'num_classes': class_num}
-        client_dict = [{'train_data': train_data_local_dict, 'test_data': test_data_local_dict, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num} for i in range(args.thread_number)]
-    elif args.method == 'fedalign':
-        Server = fedalign.Server
-        Client = fedalign.Client
-        Model = resnet_fedalign  # resnet56_fedalign#resnet_fedalign #
-        width_range = [args.width, 1.0]
-        resolutions = [32]  # if 'cifar' in args.data_dir else [224]
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'num_classes': class_num,
-                        'width_range': width_range, 'resolutions': resolutions} for i in range(args.thread_number)]
-    elif args.method == 'fednonlocal':
-        Server = fednonlocal.Server
-        Client = fednonlocal.Client
-        Model_server = resnet_nonlocal_server
-        Model_client = resnet_nonlocal
-
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
+        Model = init_net()
         model_paras = {
-            "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+            "num_classes": class_num, "KD": True, "projection": True
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model_server, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model_client, 'model_paras': model_paras, 'num_classes':numclass
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
                         } for i in range(args.thread_number)]
-    
+
     elif args.method == 'fedbalance':
         Server = fedbalance.Server
         Client = fedbalance.Client
 
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
-            Model = resnet_fedbalance_server
-            model_paras = {
-            "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
         }
 
+        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
+
             model_paras_local = {
-            "new":model_paras,
-            "local":{"model":alexnet,"paras":{"num_classes": numclass}
+                "new": model_paras,
+                "local": {"model": alexnet, "paras": {"num_classes": class_num}
+                          }
             }
-        }
         elif args.dataset == "cifar100":
-            Model = resnet
-            numclass = 100
-            model_paras = {
-            "num_classes": numclass
-        }
             model_paras_local = {
-            "new":model_paras,
-            "local":{"model":preresnet,"paras":{"num_classes": numclass}
+                "new": model_paras,
+                "local": {"model": preresnet, "paras": {"num_classes": class_num}
+                          }
             }
-        }
 
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':numclass, "client_infos":client_infos
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrs':
         Server = fedrs.Server
         Client = fedrs.Client
-    
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
-            Model = resnet_rs
-            model_paras = {
-                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
-            }
-
-        elif args.dataset == "cifar100":
-            Model = resnet
-            numclass = 100
-            model_paras = { 
-            "num_classes": numclass
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
                         } for i in range(args.thread_number)]
+
     elif args.method == 'fedrod':
         Server = fedrs.Server
         Client = fedrs.Client
-    
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
-            input_nc = 1 if args.dataset == "femnist" else 3
-            feature_dim = 576 if args.dataset == "femnist" or args.dataset == "digits+feature" else 784
-            blocks = 10 if args.dataset == "cinic10" else 2
-            net_mode = 'resnet'
-            in_channels = 4
-            numclass = 10
-            Model = resnet_rs
-            model_paras = {
-                "blocks": blocks, "input_nc": input_nc, "feature_dim": feature_dim, "net_mode": net_mode, "in_channels": in_channels, "numclass": numclass
-            }
 
-        elif args.dataset == "cifar100":
-            Model = resnet
-            numclass = 100
-            model_paras = { 
-            "num_classes": numclass
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': numclass}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':numclass, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
                         } for i in range(args.thread_number)]
 
     else:
@@ -437,12 +309,12 @@ if __name__ == "__main__":
             'Invalid --method chosen! Please choose from availible methods.')
 
     os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
-   
+
     wandb.init(
-    project="FedTH",
-    group = args.method, #+"_preresnet"
-    entity = "henrytujia",
-    job_type = args.experi)
+        project="FedTH",
+        group=args.method,
+        entity="henrytujia",
+        job_type=args.experi)
 
     wandb.config.update(args)
 
@@ -452,7 +324,8 @@ if __name__ == "__main__":
         client_info.put((client_dict[i], args))
 
     # Start server and get initial outputs
-    pool = cm.DreamPool(args.thread_number, init_process, (client_info, Client))
+    pool = cm.DreamPool(args.thread_number, init_process,
+                        (client_info, Client))
     # init server
     server_dict['save_path'] = '{}/logs/{}__{}_e{}_c{}'.format(os.getcwd(),
                                                                time.strftime("%Y%m%d_%H%M%S"), args.method, args.epochs, args.client_number)
@@ -474,13 +347,10 @@ if __name__ == "__main__":
         res = np.array([x['results'] for x in client_outputs]).mean(axis=1)
 
         for item, data in zip(items, res):
-            wandb.log({item: data},step=r)
-            # writer.add_scalar(item, data, r)
+            wandb.log({item: data}, step=r)
 
         server_outputs, [loss, acc] = server.run(client_outputs)
-        wandb.log({'global_test_loss': loss,'global_test_acc': acc},step=r)
-        # writer.add_scalar('global_test_loss', loss, r)
-        # writer.add_scalar('global_test_acc', acc, r)
+        wandb.log({'global_test_loss': loss, 'global_test_acc': acc}, step=r)
         round_end = time.time()
         logging.info('Round {} Time: {}s'.format(r, round_end-round_start))
     pool.close()

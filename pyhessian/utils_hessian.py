@@ -98,3 +98,5 @@ def orthnormal(w, v_list):
     for v in v_list:
         w = group_add(w, v, alpha=-group_product(w, v))
     return normalization(w)
+
+

@@ -10,6 +10,8 @@ from models.resnet_balance import resnet_fedbalance_server_experimental as  resn
 from torch.multiprocessing import current_process
 import numpy as np
 import random
+import wandb
+import pandas
 
 
 class Client(Base_Client):
@@ -28,6 +30,8 @@ class Client(Base_Client):
         self.client_cnts = self.init_client_infos()
 
         self.upload_keys = [x for x in self.model.state_dict().keys() if not 'local' in x ]
+
+        self.softmax = torch.nn.Softmax(dim=1)
 
         # print(self.upload_keys)
 
@@ -66,7 +70,7 @@ class Client(Base_Client):
         client_dis = self.client_cnts[idx]
 
         dist = client_dis / client_dis.sum() #个数的比例
-        cdist = dist/ dist.max()# 
+        cdist = dist/dist.max()#/ # 
         # cdist = cdist * (1.0 - self.args.alpha) + self.args.alpha
         cdist = cdist.reshape((1, -1))
 
@@ -81,20 +85,21 @@ class Client(Base_Client):
         # train the local model
         self.model.to(self.device)
         self.model.train()
-        # for name, param in self.model.named_parameters():
-        #     if "local" in name :
-        #         param.requires_grad = False
-        #     else:
-        #         param.requires_grad = True
+
         epoch_loss = []
-        for epoch in range(self.args.epochs):
+        for epoch in range(self.args.epochs): 
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.train_dataloader):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
-                log_probs = self.model(images,cidst)
-                loss = self.criterion(log_probs, labels)
+                probs = self.model(images,cidst)
+                # if self.client_index==0 and batch_idx==0:
+                #     with open('logits.log', 'a+') as out_file:
+                #         out_file.write("Round {}\tEpoch {}\tLabel {}\n".format(self.round,epoch,labels[0]))
+                #         for name,data in zip(("local","global","combine"),(local_probs[0],global_probs[0],log_probs[0])):
+                #             out_file.write("{} logits is {}\n".format(name,data))
+                loss = self.criterion(probs, labels)
    
                 loss.backward()
                 self.optimizer.step()
@@ -104,11 +109,37 @@ class Client(Base_Client):
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
                 logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(self.client_index,epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
-        
+        # self.acc_dataloader = self.test_dataloader
+        # self.test_inner(cidst)
         # #此处交换参数以及输出新字典
         # self.model.change_paras()
         weights = {key:value for key,value in self.model.cpu().state_dict().items() if key in self.upload_keys}
         return epoch_loss, weights
+
+    def test_inner(self,cdist):
+        self.model.to(self.device)
+        self.model.eval()
+
+        test_correct = [0.0]*3
+        test_sample_number = 0.0
+        with torch.no_grad():
+            for batch_idx, (x, target) in enumerate(self.acc_dataloader):
+                x = x.to(self.device)
+                target = target.to(self.device)
+
+                local_probs,global_probs,log_probs = self.model(x,cdist)
+
+                for index,probs in enumerate([local_probs,global_probs,log_probs]):
+                    _, predicted = torch.max(probs, 1)
+                    correct = predicted.eq(target).sum()
+
+                    test_correct[index] += correct.item()
+                # test_loss += loss.item()
+                test_sample_number += target.size(0)
+            accs = (np.array(test_correct) / test_sample_number)*100
+            with open('localval.log', 'a+') as out_file:
+                out_file.write("Client {}\tRound {}\tLocal Model acc :{}\tGlobal Model acc :{}\tCombine Model acc :{}\n".format(self.client_index,self.round,*accs))
+
 
 class Server(Base_Server):
     def __init__(self, server_dict, args):

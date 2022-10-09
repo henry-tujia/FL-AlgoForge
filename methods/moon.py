@@ -14,14 +14,12 @@ class Client(Base_Client):
         self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.prev_model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.global_model = self.model_type(**client_dict["model_paras"]).to(self.device)
-        # self.model = self.model_type(self.num_classes, KD=True, projection=True)
-        # self.prev_model = self.model_type(self.num_classes, KD=True, projection=True)
-        # self.prev_model.load_state_dict(self.model.state_dict())
-        # self.global_model = self.model_type(self.num_classes, KD=True, projection=True)
+        self.prev_model.load_state_dict(self.model.state_dict())
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
         self.cos = torch.nn.CosineSimilarity(dim=-1)
         self.temp = 0.5
+
 
     def run(self, received_info):
         client_results = []
