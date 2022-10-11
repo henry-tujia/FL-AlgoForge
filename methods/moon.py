@@ -93,6 +93,8 @@ class Client(Base_Client):
         return weights
 
     def test(self):
+        if len(self.acc_dataloader) == 0:
+            return 0
         self.model.to(self.device)
         self.model.eval()
 

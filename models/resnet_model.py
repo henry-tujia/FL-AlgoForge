@@ -172,12 +172,12 @@ class ResNet(nn.Module):
 def resnet8(num_classes,KD=False,projection = False):
     return ResNet(depth=8, num_classes=num_classes,KD=KD,projection=projection)
 
-def resnet20(num_classes,KD=False):
-    return ResNet(depth=20, num_classes=num_classes,KD=KD)
+def resnet20(num_classes,KD=False,projection = False):
+    return ResNet(depth=20, num_classes=num_classes,KD=KD,projection=projection)
 
 
-def resnet32(num_classes,KD=False):
-    return ResNet(depth=32, num_classes=num_classes,KD=KD)
+def resnet32(num_classes,KD=False,projection = False):
+    return ResNet(depth=32, num_classes=num_classes,KD=KD,projection=projection)
 
 
 def resnet44(num_classes):

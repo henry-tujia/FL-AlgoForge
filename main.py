@@ -6,7 +6,6 @@ import argparse
 import logging
 import os
 import random
-import re
 import sys
 import time
 from collections import defaultdict
@@ -18,11 +17,10 @@ from torch.multiprocessing import Queue, set_start_method
 import data_preprocessing.custom_multiprocess as cm
 import methods.fedavg as fedavg
 import methods.fedbalance as fedbalance
-import methods.fedclear as fedclear
-import methods.fednonlocal as fednonlocal
 import methods.fedprox as fedprox
 import methods.fedrs as fedrs
 import methods.moon as moon
+import methods.fedmc as fedmc
 
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
@@ -226,6 +224,21 @@ if __name__ == "__main__":
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
                         } for i in range(args.thread_number)]
+
+    elif args.method == 'fedmc':
+        Server = fedmc.Server
+        Client = fedmc.Client
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        } for i in range(args.thread_number)]
+                        
     elif args.method == 'moon':
         Server = moon.Server
         Client = moon.Client
@@ -258,7 +271,7 @@ if __name__ == "__main__":
         elif args.dataset == "cifar100":
             model_paras_local = {
                 "new": model_paras,
-                "local": {"model": preresnet, "paras": {"num_classes": class_num}
+                "local": {"model": alexnet, "paras": {"num_classes": class_num}
                           }
             }
 
