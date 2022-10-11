@@ -6,31 +6,6 @@ import torch.nn as nn
 import numpy as np
 
 
-class My_loss(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x, y):
-        targ1hot = torch.zeros(x.shape).scatter(1, y, 1.0)
-
-        up = x.exp()
-
-        select_item = up*targ1hot
-        down = up.sum(dim=1, keepdim=True)-select_item
-
-        probs = up/down
-
-        log_probs = -torch.log(probs)
-        return log_probs
-
-
-def custom_softmax(x, y_onehot):
-    select_item = x*y_onehot
-    up = x.exp()
-    down = x.exp().sum(dim=1, keepdim=True)-select_item
-
-    return up/down
-
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
@@ -38,7 +13,7 @@ class Client(Base_Client):
         # client_dict["model_paras"].update({"KD":True})
         self.model = self.model_type(
             **client_dict["model_paras"]).to(self.device)
-        self.criterion = My_loss().to(self.device)
+        # self.criterion = My_loss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
 
@@ -68,6 +43,7 @@ class Client(Base_Client):
         client_dis = self.client_cnts[idx]
 
         client_dis = client_dis**(-0.25)*self.alpha
+        client_dis = torch.where(torch.isinf(client_dis), torch.full_like(client_dis, 0), client_dis)
         cdist = client_dis.reshape((1, -1))
 
         return cdist.to(self.device)
@@ -104,6 +80,24 @@ class Client(Base_Client):
         weights = {key: value for key,
                    value in self.model.cpu().state_dict().items()}
         return weights
+
+
+    def criterion(self,x,y):
+
+        # print(x.shape,y.shape)
+
+        targ1hot = torch.zeros(x.shape,device=self.device).scatter(1, y.reshape((-1,1)), 1.0)
+
+        up = x.exp()
+
+        select_item = up*targ1hot
+        down = up.sum(dim=1, keepdim=True)-select_item
+
+        probs = up/down
+
+        log_probs = -torch.log(probs)
+        
+        return log_probs.mean()
 
     def test(self):
 

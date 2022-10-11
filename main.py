@@ -40,11 +40,8 @@ sys.path.append('/mnt/data/th')
 
 def add_args(parser):
     # Training settings
-    parser.add_argument('--method', type=str, default='fedavg', metavar='N',
+    parser.add_argument('--method', type=str, default='fedmc', metavar='N',
                         help='Options are: fedavg, fedprox, moon, mixup, stochdepth, gradaug, fedalign')
-
-    # parser.add_argument('--data_dir', type=str, default='data/cifar100',
-    #                     help='data directory: data/cifar100, data/cifar10, or another dataset')
 
     parser.add_argument('--experi', type=str, default='0',
                         help='the times of experi')
@@ -58,7 +55,7 @@ def add_args(parser):
     parser.add_argument('--partition_alpha', type=float, default=0.2, metavar='PA',
                         help='alpha value for Dirichlet distribution partitioning of data(default: 0.5)')
 
-    parser.add_argument('--client_number', type=int, default=10, metavar='NN',
+    parser.add_argument('--client_number', type=int, default=20, metavar='NN',
                         help='number of clients in the FL system')
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
@@ -85,7 +82,7 @@ def add_args(parser):
     parser.add_argument('--save_client', action='store_true', default=False,
                         help='Save client checkpoints each round')
 
-    parser.add_argument('--thread_number', type=int, default=1, metavar='NN',
+    parser.add_argument('--thread_number', type=int, default=2, metavar='NN',
                         help='number of parallel training threads')
 
     parser.add_argument('--client_sample', type=float, default=0.1, metavar='MT',
@@ -236,9 +233,9 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
                         } for i in range(args.thread_number)]
-                        
+
     elif args.method == 'moon':
         Server = moon.Server
         Client = moon.Client
