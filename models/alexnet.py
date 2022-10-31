@@ -5,7 +5,7 @@ __all__ = ["alexnet"]
 
 
 class AlexNet(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes,KD = False):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=5),
@@ -23,13 +23,18 @@ class AlexNet(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
         self.fc = nn.Linear(256, num_classes)
+        self.KD = KD
 
     def forward(self, x):
         x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        feature = x.view(x.size(0), -1)
+        x = self.fc(feature)
+        if self.KD:
+            return feature,x
         return x
 
 
-def alexnet(num_classes):
-    return AlexNet(num_classes=num_classes)
+def alexnet(num_classes,KD  =False):
+    return AlexNet(num_classes=num_classes,KD= KD)
+
+#feature

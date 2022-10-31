@@ -20,8 +20,8 @@ class Client(Base_Client):
         self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 
-        self.client_infos = client_dict["client_infos"]
-        self.client_cnts = self.init_client_infos()
+        # self.client_infos = client_dict["client_infos"]
+        # self.client_cnts = self.init_client_infos()
         self.cut_size = client_dict["cut_size"]
         self.predictor = nn.Sequential(
             nn.Linear(self.cut_size,128).to(self.device),
@@ -31,25 +31,25 @@ class Client(Base_Client):
         self.optimizer = torch.optim.SGD([{"params":self.model.parameters()},{"params":self.predictor.parameters()}]
             , lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
 
-    def init_client_infos(self):
-        client_cnts = {}
-        # print(self.client_infos)
+    # def init_client_infos(self):
+    #     client_cnts = {}
+    #     # print(self.client_infos)
 
-        for client,info in self.client_infos.items():
-            cnts = []
-            for c in range(self.num_classes):
-                if c in info.keys():
-                    num = info[c]
-                else:
-                    num = 0
-                cnts.append(num)
+    #     for client,info in self.client_infos.items():
+    #         cnts = []
+    #         for c in range(self.num_classes):
+    #             if c in info.keys():
+    #                 num = info[c]
+    #             else:
+    #                 num = 0
+    #             cnts.append(num)
 
-            cnts = torch.FloatTensor(np.array(cnts))
-            client_cnts.update({client:cnts})
-        # print(client_cnts)
-        return client_cnts
+    #         cnts = torch.FloatTensor(np.array(cnts))
+    #         client_cnts.update({client:cnts})
+    #     # print(client_cnts)
+    #     return client_cnts
 
-    def get_cdist(self,idx):
+    def get_cdist_inner(self,idx):
         client_dis = self.client_cnts[idx]
 
         dist = client_dis / client_dis.sum() #个数的比例
@@ -60,7 +60,7 @@ class Client(Base_Client):
 
     def train(self): 
 
-        cidst = self.get_cdist(self.client_index)
+        cidst = self.get_cdist_inner(self.client_index)
         # train the local model
         self.model.to(self.device)
         self.model.train()

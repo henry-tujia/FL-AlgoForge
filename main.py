@@ -27,9 +27,9 @@ import wandb
 from models.alexnet import alexnet as alexnet
 from models.preresnet import preresnet20 as preresnet
 
-# from models.resnet_model import resnet32 as resnet
-from models.resnet_model import resnet8 as resnet8
-from models.resnet_model import resnet20 as resnet
+# from models.resnet import resnet32 as resnet
+from models.resnet import resnet8 as resnet8
+from models.resnet import resnet20 as resnet
 
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -40,19 +40,19 @@ sys.path.append('/mnt/data/th')
 
 def add_args(parser):
     # Training settings
-    parser.add_argument('--method', type=str, default='fedmc', metavar='N',
+    parser.add_argument('--method', type=str, default='fedavg', metavar='N',
                         help='Options are: fedavg, fedprox, moon, mixup, stochdepth, gradaug, fedalign')
 
     parser.add_argument('--experi', type=str, default='0',
                         help='the times of experi')
 
     parser.add_argument('--dataset', type=str,
-                        default='cifar10', help="name of dataset")
+                        default='cinic10', help="name of dataset")
 
     parser.add_argument('--partition_method', type=str, default='hetero', metavar='N',
                         help='how to partition the dataset on local clients')
 
-    parser.add_argument('--partition_alpha', type=float, default=0.2, metavar='PA',
+    parser.add_argument('--partition_alpha', type=float, default=0.3, metavar='PA',
                         help='alpha value for Dirichlet distribution partitioning of data(default: 0.5)')
 
     parser.add_argument('--client_number', type=int, default=20, metavar='NN',
@@ -87,6 +87,9 @@ def add_args(parser):
 
     parser.add_argument('--client_sample', type=float, default=0.1, metavar='MT',
                         help='Fraction of clients to sample')
+
+    parser.add_argument('--local_valid', type=bool, default=False,
+                        help='Local validition or not')
 
     args = parser.parse_args()
 
@@ -158,6 +161,7 @@ if __name__ == "__main__":
     except RuntimeError:
         pass
     set_random_seed()
+
     # get arguments
     parser = argparse.ArgumentParser()
     args = add_args(parser)
@@ -189,9 +193,21 @@ if __name__ == "__main__":
     dict_client_idexes, class_num, client_infos = get_client_idxes_dict(
         args.datadir, args.partition_method, args.partition_alpha, args.client_number)
     test_dl = get_client_dataloader(
-        args.datadir, args.batch_size, dict_client_idexes, client_idx=None, train=False)
+        args.datadir, args.batch_size*4, dict_client_idexes, client_idx=None, train=False)
 
     mapping_dict = allocate_clients_to_threads(args)
+
+    class_last_select_dict = {k:0 for k in range(args.client_number)}
+
+    import operator
+    import functools
+
+    for round_inner in range(args.comm_round):
+        clients_round = functools.reduce(operator.concat, [x[round_inner] for x in mapping_dict.values()])
+        for client_inner in clients_round:
+            class_last_select_dict[client_inner] = max(class_last_select_dict[client_inner],round_inner)
+    logging.info('class_last_select_dict:{}\n'.format(class_last_select_dict))
+
     # init method and model type
     if args.method == 'fedavg':
         Server = fedavg.Server
@@ -205,7 +221,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict,"client_infos":client_infos
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedprox':
@@ -219,7 +235,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict,"client_infos":client_infos
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedmc':
@@ -233,7 +249,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
 
     elif args.method == 'moon':
@@ -246,7 +262,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict,"client_infos":client_infos
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedbalance':
@@ -275,7 +291,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrs':
@@ -288,7 +304,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrod':
@@ -302,7 +318,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, "alpha":0.1
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
 
     else:
@@ -332,26 +348,28 @@ if __name__ == "__main__":
                                                                time.strftime("%Y%m%d_%H%M%S"), args.method, args.epochs, args.client_number)
     if not os.path.exists(server_dict['save_path']):
         os.makedirs(server_dict['save_path'])
+
     server = Server(server_dict, args)
     server_outputs = server.start()
     # Start Federated Training
     # Allow time for threads to start up
     time.sleep(15*(args.client_number/100))
+
+    # local_acc = 0
     for r in range(args.comm_round):
         logging.info('************** Round: {} ***************'.format(r))
         round_start = time.time()
         client_outputs = pool.map(run_clients, server_outputs)
         client_outputs = [c for sublist in client_outputs for c in sublist]
-        # items = ["local_test_acc"]
 
-        res = np.array([x['results'] for x in client_outputs]).mean()
+        res = np.array([x['results'] for x in client_outputs])#.sum()
 
-        # for item, data in zip(items, res):
-        #     wandb.log({item: data}, step=r)
-        wandb.log({"local_test_acc": res}, step=r)
+        # local_acc += res
         server_outputs, acc = server.run(client_outputs)
+        wandb.log({"local_test_acc": res}, step=r)
         wandb.log({'global_test_acc': acc}, step=r)
         round_end = time.time()
         logging.info('Round {} Time: {}s'.format(r, round_end-round_start))
+    wandb.log({"local_test_acc": local_acc/args.client_number})
     pool.close()
     pool.join()

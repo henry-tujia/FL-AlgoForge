@@ -3,6 +3,7 @@ import torch
 import logging
 import json
 from torch.multiprocessing import current_process
+from torch.cuda.amp import autocast as autocast
 
 
 class Base_Client():
@@ -20,14 +21,40 @@ class Base_Client():
         self.client_index = None
         self.get_dataloader = client_dict['get_dataloader']
         self.before_val = False
-        self.after_val = True
+        self.after_val = False
         self.distances = None
-        self.alpha = None
+        self.last_select_round_dict = client_dict['last_select']
+        self.client_infos = client_dict["client_infos"]
+        self.weight_test = None
 
+    def get_last_round(self,client_idx):
+        return self.last_select_round_dict[client_idx]
 
     def load_client_state_dict(self, server_state_dict):
         # If you want to customize how to state dict is loaded you can do so here
         self.model.load_state_dict(server_state_dict)
+
+    def get_cdist_test(self,client_idx):
+        client_dis = self.client_cnts[client_idx]
+        dist = client_dis / client_dis.sum() #个数的比例
+        cdist = dist
+        return cdist.to(self.device)
+
+    def init_client_infos(self):
+        client_cnts = {}
+        for client, info in self.client_infos.items():
+            cnts = []
+            for c in range(self.num_classes):
+                if c in info.keys():
+                    num = info[c]
+                else:
+                    num = 0
+                cnts.append(num)
+
+            cnts = torch.FloatTensor(np.array(cnts))
+            client_cnts.update({client: cnts})
+
+        return client_cnts
 
     def run(self, received_info):
         client_results = []
@@ -38,9 +65,12 @@ class Base_Client():
             if self.args.client_sample < 1.0 and self.train_dataloader._iterator is not None and self.train_dataloader._iterator._shutdown:
                 self.train_dataloader._iterator = self.train_dataloader._get_iterator()
             self.client_index = client_idx
+            self.client_cnts = self.init_client_infos()
             num_samples = len(self.train_dataloader)*self.args.batch_size
             weights = self.train()
-            if self.after_val:
+            last_round = self.get_last_round(client_idx)
+            if self.args.local_valid: #and self.round == last_round:
+                self.weight_test = self.get_cdist_test(client_idx).reshape((1,-1))
                 self.acc_dataloader = self.test_dataloader
                 after_test_acc = self.test()
             else:
@@ -64,8 +94,9 @@ class Base_Client():
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
-                log_probs = self.model(images)
-                loss = self.criterion(log_probs, labels)
+                with autocast():
+                    log_probs = self.model(images)
+                    loss = self.criterion(log_probs, labels)
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
@@ -78,15 +109,12 @@ class Base_Client():
 
     def test(self):
 
-        if len(self.acc_dataloader) == 0:
-            return 0
-
         self.model.to(self.device)
         self.model.eval()
 
-        test_correct = 0.0
-        # test_loss = 0.0
-        test_sample_number = 0.0
+        preds = None
+        labels = None
+        acc = None
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
@@ -95,15 +123,24 @@ class Base_Client():
                 pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
-                correct = predicted.eq(target).sum()
 
-                test_correct += correct.item()
-                # test_loss += loss.item()
-                test_sample_number += target.size(0)
-            acc = (test_correct / test_sample_number)*100
-            logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, acc))
-        return acc
+                if preds is None:
+                    preds = predicted.cpu()
+                    labels = target.cpu()
+                else:
+                    preds = torch.concat((preds,predicted.cpu()),dim=0)
+                    labels = torch.concat((labels,target.cpu()),dim=0)
+        for c in range(self.num_classes):
+            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            if acc is None:
+                acc = temp_acc.reshape((1,-1))
+            else:
+                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
+        # print(acc.device,self.weight_test.device)
+        weighted_acc = (acc.reshape((1,-1))*self.weight_test.cpu()).sum()
+        logging.info(
+                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+        return weighted_acc
 
 
 class Base_Server():

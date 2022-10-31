@@ -8,6 +8,7 @@ import logging
 from methods.base import Base_Client, Base_Server
 import copy
 from torch.multiprocessing import current_process
+from torch.cuda.amp import autocast as autocast
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
@@ -28,15 +29,16 @@ class Client(Base_Client):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
-                log_probs = self.model(images)
-                loss = self.criterion(log_probs, labels)
-                ############
-                # for fedprox
-                fed_prox_reg = 0.0
-                for param_index, param in enumerate(self.model.parameters()):
-                    fed_prox_reg += ((self.args.mu / 2) * torch.norm((param - global_weight_collector[param_index])) ** 2)
-                loss = loss + fed_prox_reg
-                ########
+                with autocast():
+                    log_probs = self.model(images)
+                    loss = self.criterion(log_probs, labels)
+                    ############
+                    # for fedprox
+                    fed_prox_reg = 0.0
+                    for param_index, param in enumerate(self.model.parameters()):
+                        fed_prox_reg += ((self.args.mu / 2) * torch.norm((param - global_weight_collector[param_index])) ** 2)
+                    loss = loss + fed_prox_reg
+                    ########
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())

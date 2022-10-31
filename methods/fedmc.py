@@ -16,35 +16,51 @@ class Client(Base_Client):
         # self.criterion = My_loss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.nll = nn.NLLLoss().to(self.device)
+        # self.client_infos = client_dict["client_infos"]
+        # self.client_cnts = self.init_client_infos()
 
-        self.client_infos = client_dict["client_infos"]
-        self.client_cnts = self.init_client_infos()
-        self.alpha = client_dict["alpha"]
+    # def init_client_infos(self):
+    #     client_cnts = {}
+    #     # print(self.client_infos)
 
-    def init_client_infos(self):
-        client_cnts = {}
-        # print(self.client_infos)
+    #     for client, info in self.client_infos.items():
+    #         cnts = []
+    #         for c in range(self.num_classes):
+    #             if c in info.keys():
+    #                 num = info[c]
+    #             else:
+    #                 num = 0
+    #             cnts.append(num)
 
-        for client, info in self.client_infos.items():
-            cnts = []
-            for c in range(self.num_classes):
-                if c in info.keys():
-                    num = info[c]
-                else:
-                    num = 0
-                cnts.append(num)
+    #         cnts = torch.FloatTensor(np.array(cnts))
+    #         client_cnts.update({client: cnts})
+    #     # print(client_cnts)
+    #     return client_cnts
 
-            cnts = torch.FloatTensor(np.array(cnts))
-            client_cnts.update({client: cnts})
-        # print(client_cnts)
-        return client_cnts
+    def one_hot(y, num_class):
+        return torch.zeros((len(y), num_class)).to(y.device).scatter_(1, y.unsqueeze(1), 1)
+
+    class PairedLoss(torch.nn.Module):
+        def __init__(self, T, client_dist):
+            super(PairedLoss, self).__init__()
+            self.T = T
+            self.client_dist = client_dist
+            self.adds = self.T * torch.pow(self.client_dist, -0.25)
+
+        def forward(self, inputs, targets):
+            targets_onehot = one_hot(targets, inputs.shape[1])
+            inputs = inputs - self.adds
+            loss = - torch.log(torch.exp(inputs[targets]) / torch.sum(torch.exp(inputs[targets_onehot == 0]), dim=1))
+            return torch.mean(loss)
 
     def get_cdist(self, idx):
         client_dis = self.client_cnts[idx]
 
-        client_dis = client_dis**(-0.25)*self.alpha
+        client_dis = client_dis**(-0.25)*self.args.mu
         client_dis = torch.where(torch.isinf(client_dis), torch.full_like(client_dis, 0), client_dis)
         cdist = client_dis.reshape((1, -1))
+
 
         return cdist.to(self.device)
 
@@ -65,7 +81,11 @@ class Client(Base_Client):
 
                 calibrated_logits = logits-cidst
 
+
+
                 loss = self.criterion(calibrated_logits, labels)
+
+
 
                 loss.backward()
                 self.optimizer.step()
@@ -89,16 +109,35 @@ class Client(Base_Client):
         targ1hot = torch.zeros(x.shape,device=self.device).scatter(1, y.reshape((-1,1)), 1.0)
 
         up = x.exp()
+        # print(up)
 
-        select_item = up*targ1hot
-        down = up.sum(dim=1, keepdim=True)-select_item
+        select_item = (up*targ1hot).sum(dim=1,keepdim=True)
+        down = up.sum(dim=1,keepdim=True)-select_item
 
-        probs = up/down
+        # probs = select_item/down
 
-        log_probs = -torch.log(probs)
-        
-        return log_probs.mean()
+        log_probs = -(torch.log(select_item)-torch.log(down))
 
+        # log_probs_selletc = (log_probs*targ1hot).sum(dim=1,keepdim=True)
+
+        loss = log_probs.mean()
+
+
+        if torch.isinf(loss).any() or torch.isnan(loss).any():
+            print("up_old",up)
+            print("select_item",select_item)
+            print("up",up.sum(dim=1,keepdim=True))
+            print("down",down)
+            print("log_probs",log_probs)
+
+                    
+
+        # input("wait")
+
+        # loss =self.nll(log_probs,y)
+
+        return loss
+ 
     def test(self):
 
         if len(self.acc_dataloader) == 0:
@@ -108,9 +147,9 @@ class Client(Base_Client):
         self.model.to(self.device)
         self.model.eval()
 
-        test_correct = 0.0
-        # test_loss = 0.0
-        test_sample_number = 0.0
+        preds = None
+        labels = None
+        acc = None
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
@@ -121,15 +160,22 @@ class Client(Base_Client):
                 calibrated_logits = logits-cidst
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(calibrated_logits, 1)
-                correct = predicted.eq(target).sum()
-
-                test_correct += correct.item()
-                # test_loss += loss.item()
-                test_sample_number += target.size(0)
-            acc = (test_correct / test_sample_number)*100
-            logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, acc))
-        return acc
+                if preds is None:
+                    preds = predicted.cpu()
+                    labels = target.cpu()
+                else:
+                    preds = torch.concat((preds,predicted.cpu()),dim=0)
+                    labels = torch.concat((labels,target.cpu()),dim=0)
+        for c in range(self.num_classes):
+            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            if acc is None:
+                acc = temp_acc.reshape((1,-1))
+            else:
+                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
+        weighted_acc = (acc.reshape((1,-1))*self.weight_test.cpu()).sum()
+        logging.info(
+                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+        return weighted_acc
 
 
 class Server(Base_Server):
