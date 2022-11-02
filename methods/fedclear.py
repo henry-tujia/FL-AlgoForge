@@ -1,135 +1,135 @@
-import copy
-import random
+import os
 import torch
-import torch.nn.functional as F
 
 import logging
 from methods.base import Base_Client, Base_Server
-import torch.nn.functional as F
-from  torch import nn
+from models.resnet_balance import resnet_fedbalance_experimental as resnet_fedbalance
+from models.resnet_balance import resnet_fedbalance_server_experimental as resnet_fedbalance_server
 from torch.multiprocessing import current_process
 import numpy as np
-import random
-
 
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        client_dict["model_paras"]["KD"] = True
-        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model_new = self.model_type(
+            **client_dict["model_paras"]["new"]).to(self.device)
+        model_local_type, paras = client_dict["model_paras"]["local"].values()
+        self.model_local = model_local_type(**paras).to(self.device)
+        self.model = resnet_fedbalance(self.model_local, self.model_new,KD=True)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+        self.optimizer = torch.optim.SGD(self.model.parameters(
+        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
 
-        # self.client_infos = client_dict["client_infos"]
-        # self.client_cnts = self.init_client_infos()
-        self.cut_size = client_dict["cut_size"]
-        self.predictor = nn.Sequential(
-            nn.Linear(self.cut_size,128).to(self.device),
-            nn.Linear(128,self.num_classes).to(self.device)
-        )
-         
-        self.optimizer = torch.optim.SGD([{"params":self.model.parameters()},{"params":self.predictor.parameters()}]
-            , lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.private_epochs = 2
 
-    # def init_client_infos(self):
-    #     client_cnts = {}
-    #     # print(self.client_infos)
+        self.upload_keys = [
+            x for x in self.model.state_dict().keys() if not 'local' in x]
 
-    #     for client,info in self.client_infos.items():
-    #         cnts = []
-    #         for c in range(self.num_classes):
-    #             if c in info.keys():
-    #                 num = info[c]
-    #             else:
-    #                 num = 0
-    #             cnts.append(num)
+    def load_client_state_dict(self, server_state_dict):
+        paras_old = self.model.state_dict()
+        paras_new = server_state_dict
 
-    #         cnts = torch.FloatTensor(np.array(cnts))
-    #         client_cnts.update({client:cnts})
-    #     # print(client_cnts)
-    #     return client_cnts
+        for key in self.upload_keys:
 
-    def get_cdist_inner(self,idx):
+            paras_old[key] = paras_new[key]
+            # print(key)
+
+        self.model.load_state_dict(paras_old)
+
+    def get_cdist_inner(self, idx):
         client_dis = self.client_cnts[idx]
 
-        dist = client_dis / client_dis.sum() #个数的比例
-        cdist = dist/ dist.max()
-
+        dist = client_dis / client_dis.sum()  # 个数的比例
+        cdist = dist#/dist.max()
         cdist = cdist.reshape((1, -1))
+
+        # logging.info("Client is {}\t, distance is {}\t".format(idx, cdist))
+
         return cdist.to(self.device)
 
-    def train(self): 
+    def train(self):
 
         cidst = self.get_cdist_inner(self.client_index)
         # train the local model
         self.model.to(self.device)
         self.model.train()
-        self.predictor.train()
 
         epoch_loss = []
-        for epoch in range(self.args.epochs): 
+        epoch_KL = []
+        for epoch in range(self.args.epochs):
             batch_loss = []
+            batch_KL = []
             for batch_idx, (images, labels) in enumerate(self.train_dataloader):
+                # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
-                self.predictor.zero_grad()
-                features,log_probs = self.model(images)
-                # log_probs = nn.functional.softmax(log_probs, dim=1)
-                local_logits = self.predictor(features[:,:self.cut_size].detach())
+                h_local,h_gloabl,probs = self.model(images, cidst)
+                probs_l = torch.softmax(h_local,-1)
+                probs_g = torch.softmax(h_gloabl,-1)
+                # probs_g = torch.softmax(h_gloabl,-1)
                 
-                loss_1 = self.criterion(local_logits, labels)
-                logits = log_probs+local_logits*cidst
-                loss = self.criterion(logits, labels)+0.1*loss_1
+                if epoch < self.private_epochs:
+                    loss = self.criterion(probs_l, labels)
+                else:
+                    h_combine = cidst*h_local + h_gloabl
+                    loss = self.criterion(h_combine, labels)
+                
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
+                kl = torch.kl_div(probs_l.log(),probs_g.detach()).mean()
+                batch_KL.append(kl)
 
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(self.client_index,epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
-        # if self.client_index==0:
-        #     self.acc_dataloader = self.train_dataloader
-        #     self.testAndplot(cidst)
-        weights = {key:value for key,value in self.model.cpu().state_dict().items()}
+                epoch_KL.append(sum(batch_KL) / len(batch_KL))
+                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}\tKL: {:.6f}  Thread {}  Map {}'.format(
+                    self.client_index, epoch, sum(epoch_loss) / len(epoch_loss),sum(epoch_KL) / len(epoch_KL), current_process()._identity[0], self.client_map[self.round]))
+        weights = {key: value for key, value in self.model.cpu(
+        ).state_dict().items() if key in self.upload_keys}
         return weights
-    
-    def testAndplot(self,cidst):
 
+    def test(self):
+
+        cidst = self.get_cdist_inner(self.client_index)
         self.model.to(self.device)
         self.model.eval()
-        self.predictor.eval()
-        inner_list = [[] for x in range(self.num_classes)]
+
+        preds = None
+        labels = None
+        acc = None
+
+        # test_correct = 0.0
+        # # test_loss = 0.0
+        # test_sample_number = 0.0
         with torch.no_grad():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                features,log_probs = self.model(x)
-                # log_probs = nn.functional.softmax(log_probs, dim=1)
-                local_logits = nn.functional.relu(self.predictor(features[:,:self.cut_size]))*cidst
-                logits = log_probs+local_logits
-
-                for index,label in enumerate(target):
-                    inner_list[label.data].append([local_logits[index].cpu().numpy(),log_probs[index].cpu().numpy(),logits[index].cpu().numpy(),cidst[0].cpu().numpy()])
-        plot_data_list = []
-        import pandas
-
-        for i in range(self.num_classes):
-            if len(inner_list[i]) == 0:
-                inner_list[i] = [np.zeros(self.num_classes).tolist(),np.zeros(self.num_classes).tolist(),cidst[0].cpu().numpy().tolist()]
+                _,_,probs = self.model(x, cidst)
+                # loss = self.criterion(pred, target)
+                _, predicted = torch.max(probs, 1)
+                if preds is None:
+                    preds = predicted.cpu()
+                    labels = target.cpu()
+                else:
+                    preds = torch.concat((preds,predicted.cpu()),dim=0)
+                    labels = torch.concat((labels,target.cpu()),dim=0)
+        for c in range(self.num_classes):
+            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            if acc is None:
+                acc = temp_acc.reshape((1,-1))
             else:
-                inner_array=  np.array(inner_list[i]).mean(axis=0).tolist()
-            plot_data_list.append([x for x in inner_array])
-                
-        logging.info("{}\n".format(plot_data_list))
-        df_save = pandas.DataFrame(plot_data_list)
-        df_save.to_csv(str(self.round)+"_pos_here.csv")
-    def loss_pos(self,x):
-        y = torch.where(x<0, x,torch.zeros_like(x).to(self.device))
-
-        return F.mse_loss(y,torch.zeros_like(y).to(self.device))
-
+                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
+        weighted_acc = acc.reshape((1,-1)).sum()
+        logging.info(
+                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+        return weighted_acc
+        
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
-        self.model = self.model_type(**server_dict["model_paras"])
+        self.model_server = self.model_type(**server_dict["model_paras"])
+        self.model = resnet_fedbalance_server(self.model_server)
         # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)

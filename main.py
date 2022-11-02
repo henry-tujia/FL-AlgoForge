@@ -21,6 +21,7 @@ import methods.fedprox as fedprox
 import methods.fedrs as fedrs
 import methods.moon as moon
 import methods.fedmc as fedmc
+import methods.fedclear as fedclear
 
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
@@ -148,7 +149,7 @@ def allocate_clients_to_threads(args):
 
 
 def init_net():
-    if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
+    if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature","covid"):
         Model = resnet8
     elif args.dataset == "cifar100":
         Model = resnet
@@ -183,6 +184,9 @@ if __name__ == "__main__":
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "emnist":
         from FedML.fedml_api.data_preprocessing.emnist.data_loader import (
+            get_client_dataloader, get_client_idxes_dict)
+    elif args.dataset == "covid":
+        from FedML.fedml_api.data_preprocessing.covid.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "svhn":
         from utils.utils import get_client_dataloader, get_client_idxes_dict
@@ -274,7 +278,7 @@ if __name__ == "__main__":
             "num_classes": class_num
         }
 
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature"):
+        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature","covid"):
 
             model_paras_local = {
                 "new": model_paras,
@@ -320,7 +324,34 @@ if __name__ == "__main__":
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
+    elif args.method == 'fedclear':
+        Server = fedclear.Server
+        Client = fedclear.Client
 
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature","covid"):
+
+            model_paras_local = {
+                "new": model_paras,
+                "local": {"model": alexnet, "paras": {"num_classes": class_num}
+                          }
+            }
+        elif args.dataset == "cifar100":
+            model_paras_local = {
+                "new": model_paras,
+                "local": {"model": alexnet, "paras": {"num_classes": class_num}
+                          }
+            }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
+                        } for i in range(args.thread_number)]
     else:
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
@@ -370,6 +401,6 @@ if __name__ == "__main__":
         wandb.log({'global_test_acc': acc}, step=r)
         round_end = time.time()
         logging.info('Round {} Time: {}s'.format(r, round_end-round_start))
-    wandb.log({"local_test_acc": local_acc/args.client_number})
+    # wandb.log({"local_test_acc": local_acc/args.client_number})
     pool.close()
     pool.join()
