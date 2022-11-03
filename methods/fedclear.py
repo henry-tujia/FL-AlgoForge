@@ -67,13 +67,13 @@ class Client(Base_Client):
                 h_local,h_gloabl,probs = self.model(images, cidst)
                 probs_l = torch.softmax(h_local,-1)
                 probs_g = torch.softmax(h_gloabl,-1)
-                # probs_g = torch.softmax(h_gloabl,-1)
+                # # probs_g = torch.softmax(h_gloabl,-1)
                 
-                if epoch < self.private_epochs:
-                    loss = self.criterion(probs_l, labels)
-                else:
-                    h_combine = cidst*h_local + h_gloabl
-                    loss = self.criterion(h_combine, labels)
+                # if epoch < self.private_epochs:
+                #     loss = self.criterion(probs_l, labels)
+                # else:
+                h_combine = h_local + h_gloabl
+                loss = self.criterion(h_combine, labels)
                 
                 loss.backward()
                 self.optimizer.step()
@@ -122,7 +122,7 @@ class Client(Base_Client):
                 acc = temp_acc.reshape((1,-1))
             else:
                 acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
-        weighted_acc = acc.reshape((1,-1)).sum()
+        weighted_acc = acc.reshape((1,-1)).mean()
         logging.info(
                 "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc

@@ -137,7 +137,7 @@ class Base_Client():
             else:
                 acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
         # print(acc.device,self.weight_test.device)
-        weighted_acc = (acc.reshape((1,-1))*self.weight_test.cpu()).sum()
+        weighted_acc = acc.reshape((1,-1)).mean()
         logging.info(
                 "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc
