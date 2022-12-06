@@ -108,8 +108,8 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                _, pred = self.model(x)
+                with autocast():
+                    _, pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 if preds is None:
@@ -162,8 +162,8 @@ class Server(Base_Server):
             for batch_idx, (x, target) in enumerate(self.test_data):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                _, pred = self.model(x)
+                with autocast():
+                    _, pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 correct = predicted.eq(target).sum()

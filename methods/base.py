@@ -119,8 +119,8 @@ class Base_Client():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                pred = self.model(x)
+                with autocast():
+                    pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
 
@@ -206,8 +206,8 @@ class Base_Server():
             for batch_idx, (x, target) in enumerate(data):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                pred = self.model(x)
+                with autocast():
+                    pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 correct = predicted.eq(target).sum()

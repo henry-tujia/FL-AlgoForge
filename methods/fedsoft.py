@@ -7,19 +7,21 @@ from models.resnet_balance import resnet_fedbalance_experimental as resnet_fedba
 from models.resnet_balance import resnet_fedbalance_server_experimental as resnet_fedbalance_server
 from torch.multiprocessing import current_process
 import numpy as np
-from models.resnet import resnet8 as resnet8
-from models.resnet import resnet20 as resnet20
 from torch.cuda.amp import autocast as autocast
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model_global = self.model_type(**client_dict["model_paras"]).to(self.device)
-        self.model_local = resnet20(self.num_classes) if "100" in self.args.dataset else resnet8(self.num_classes).to(self.device)
-        self.model = resnet_fedbalance(self.model_local, self.model_global,KD=True)
+        self.model_new = self.model_type(
+            **client_dict["model_paras"]["new"]).to(self.device)
+        model_local_type, paras = client_dict["model_paras"]["local"].values()
+        self.model_local = model_local_type(**paras).to(self.device)
+        self.model = resnet_fedbalance(self.model_local, self.model_new,KD=True)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+
+        self.private_epochs = 2
 
         self.upload_keys = [
             x for x in self.model.state_dict().keys() if not 'local' in x]
@@ -34,22 +36,6 @@ class Client(Base_Client):
             # print(key)
 
         self.model.load_state_dict(paras_old)
-
-    # def init_client_infos(self):
-    #     client_cnts = {}
-    #     for client, info in self.client_infos.items():
-    #         cnts = []
-    #         for c in range(self.num_classes):
-    #             if c in info.keys():
-    #                 num = info[c]
-    #             else:
-    #                 num = 0
-    #             cnts.append(num)
-
-    #         cnts = torch.FloatTensor(np.array(cnts))
-    #         client_cnts.update({client: cnts})
-
-    #     return client_cnts
 
     def get_cdist_inner(self, idx):
         client_dis = self.client_cnts[idx]
@@ -78,26 +64,21 @@ class Client(Base_Client):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
-
-                with autocast():
-
-                    h_local = self.model.model_local(images)
-                    h_gloabl = self.model.model_server(images)
-
-                    h_combine = h_local*cidst+h_gloabl
-
-                    # h_local,h_gloabl,probs = self.model(images, cidst)
-
-                    probs_l = torch.softmax(h_local,-1)
-                    probs_g = torch.softmax(h_gloabl,-1)
-
-                    kl = torch.kl_div(probs_l.log(),probs_g.detach()).mean()
-
-                    loss = self.criterion(h_combine, labels)
-
+                h_local,h_gloabl,probs = self.model(images, cidst)
+                probs_l = torch.softmax(h_local,-1)
+                probs_g = torch.softmax(h_gloabl,-1)
+                # # probs_g = torch.softmax(h_gloabl,-1)
+                
+                # if epoch < self.private_epochs:
+                #     loss = self.criterion(probs_l, labels)
+                # else:
+                h_combine = probs_l*cidst + probs_g
+                loss = self.criterion(h_combine, labels)
+                
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
+                kl = torch.kl_div(probs_l.log(),probs_g.detach()).mean()
                 batch_KL.append(kl)
 
             if len(batch_loss) > 0:
@@ -126,10 +107,9 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    logits = self.model.model_server(x)
+                _,_,probs = self.model(x, cidst)
                 # loss = self.criterion(pred, target)
-                _, predicted = torch.max(logits, 1)
+                _, predicted = torch.max(probs, 1)
                 if preds is None:
                     preds = predicted.cpu()
                     labels = target.cpu()

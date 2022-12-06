@@ -3,7 +3,7 @@ import logging
 from methods.base import Base_Client, Base_Server
 from torch.multiprocessing import current_process
 import numpy as np
-
+from torch.cuda.amp import autocast as autocast
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
@@ -87,11 +87,11 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
+                with autocast():
+                    hs,_ = self.model(x)
+                    ws = self.model.fc.weight
 
-                hs,_ = self.model(x)
-                ws = self.model.fc.weight
-
-                logits = cidst * hs.mm(ws.transpose(0, 1))
+                    logits = cidst * hs.mm(ws.transpose(0, 1))
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(logits, 1)
                 if preds is None:

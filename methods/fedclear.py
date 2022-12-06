@@ -7,7 +7,7 @@ from models.resnet_balance import resnet_fedbalance_experimental as resnet_fedba
 from models.resnet_balance import resnet_fedbalance_server_experimental as resnet_fedbalance_server
 from torch.multiprocessing import current_process
 import numpy as np
-
+from torch.cuda.amp import autocast as autocast
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):

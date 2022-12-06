@@ -22,6 +22,7 @@ import methods.fedrs as fedrs
 import methods.moon as moon
 import methods.fedmc as fedmc
 import methods.fedclear as fedclear
+import methods.fedsoft as fedsoft
 
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args = add_args(parser)
 
-    root_path = "/mnt/data/th/FedTH/data"
+    root_path = "/mnt/data/th"
     args.datadir = os.path.join(root_path, "dataset", args.dataset)
 
     if args.dataset == "cifar10":
@@ -278,20 +279,6 @@ if __name__ == "__main__":
             "num_classes": class_num
         }
 
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature","covid"):
-
-            model_paras_local = {
-                "new": model_paras,
-                "local": {"model": alexnet, "paras": {"num_classes": class_num}
-                          }
-            }
-        elif args.dataset == "cifar100":
-            model_paras_local = {
-                "new": model_paras,
-                "local": {"model": alexnet, "paras": {"num_classes": class_num}
-                          }
-            }
-
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
@@ -333,25 +320,26 @@ if __name__ == "__main__":
             "num_classes": class_num
         }
 
-        if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature","covid"):
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
+                        } for i in range(args.thread_number)]
+    elif args.method == 'fedsoft':
+        Server = fedsoft.Server
+        Client = fedsoft.Client
 
-            model_paras_local = {
-                "new": model_paras,
-                "local": {"model": alexnet, "paras": {"num_classes": class_num}
-                          }
-            }
-        elif args.dataset == "cifar100":
-            model_paras_local = {
-                "new": model_paras,
-                "local": {"model": alexnet, "paras": {"num_classes": class_num}
-                          }
-            }
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
 
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
+        
     else:
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')

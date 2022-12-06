@@ -91,13 +91,14 @@ class Client(Base_Client):
             for batch_idx, (images, labels) in enumerate(self.train_dataloader):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
+                self.optimizer.zero_grad()
                 with autocast():
                     feature, log_probs = self.model(images)
                     loss_bsm = self.balanced_softmax_loss(labels, log_probs, cdist)
                     log_probs_pred = self.predictor(feature.detach())
                     loss = self.criterion(log_probs_pred+log_probs.detach(),labels)
                     
-                self.optimizer.zero_grad()
+                
                 loss_bsm.backward()
                 self.optimizer.step()
                 self.optimizer_prd.zero_grad()
@@ -130,9 +131,9 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                feature, log_probs = self.model(x)
-                log_probs_pred = self.predictor(feature)
+                with autocast():
+                    feature, log_probs = self.model(x)
+                    log_probs_pred = self.predictor(feature)
 
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(log_probs_pred+log_probs, 1)

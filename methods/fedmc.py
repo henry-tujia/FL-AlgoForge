@@ -4,7 +4,7 @@ from methods.base import Base_Client, Base_Server
 from torch.multiprocessing import current_process
 import torch.nn as nn
 import numpy as np
-
+from torch.cuda.amp import autocast as autocast
 
 
 class Client(Base_Client):
@@ -154,8 +154,8 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-
-                logits = self.model(x)
+                with autocast():
+                    logits = self.model(x)
 
                 calibrated_logits = logits-cidst
                 # loss = self.criterion(pred, target)
