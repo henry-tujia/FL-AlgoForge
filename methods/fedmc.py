@@ -17,6 +17,7 @@ class Client(Base_Client):
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
         self.nll = nn.NLLLoss().to(self.device)
+        self.hypers = client_dict["hypers"]
         # self.client_infos = client_dict["client_infos"]
         # self.client_cnts = self.init_client_infos()
 
@@ -37,23 +38,6 @@ class Client(Base_Client):
     #         client_cnts.update({client: cnts})
     #     # print(client_cnts)
     #     return client_cnts
-
-    def one_hot(y, num_class):
-        return torch.zeros((len(y), num_class)).to(y.device).scatter_(1, y.unsqueeze(1), 1)
-
-    class PairedLoss(torch.nn.Module):
-        def __init__(self, T, client_dist):
-            super(PairedLoss, self).__init__()
-            self.T = T
-            self.client_dist = client_dist
-            self.adds = self.T * torch.pow(self.client_dist, -0.25)
-
-        def forward(self, inputs, targets):
-            targets_onehot = one_hot(targets, inputs.shape[1])
-            inputs = inputs - self.adds
-            loss = - torch.log(torch.exp(inputs[targets]) / torch.sum(torch.exp(inputs[targets_onehot == 0]), dim=1))
-            return torch.mean(loss)
-
     def get_cdist(self, idx):
         client_dis = self.client_cnts[idx]
 
@@ -78,15 +62,8 @@ class Client(Base_Client):
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
                 logits = self.model(images)
-
                 calibrated_logits = logits-cidst
-
-
-
                 loss = self.criterion(calibrated_logits, labels)
-
-
-
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())

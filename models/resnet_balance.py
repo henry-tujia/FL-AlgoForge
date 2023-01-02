@@ -2,19 +2,20 @@ from torch import nn
 
 
 class resnet_fedbalance_experimental(nn.Module):
-    def __init__(self, model_local,model_server,KD = False) -> None:
+    def __init__(self, model_local,model_global,KD = False) -> None:
         super(resnet_fedbalance_experimental, self).__init__()
 
-        self.model_server = model_server
+        self.model_global = model_global
         self.model_local = model_local
         self.KD = KD
         self.softmax = nn.Softmax(dim=1)
+        self.confidence = nn.Linear(10,10)
 
     def forward(self, x,distance):
 
         h_local = self.model_local(x)
 
-        h_new = self.model_server(x)
+        h_new = self.model_global(x)
 
         # print(torch.kl_div(a.log(),b).mean())
  
@@ -32,13 +33,13 @@ class resnet_fedbalance_experimental(nn.Module):
         return h_combine
 
 class resnet_fedbalance_server_experimental(nn.Module):
-    def __init__(self, model_server) -> None:
+    def __init__(self, model_global) -> None:
         super(resnet_fedbalance_server_experimental, self).__init__()
 
-        self.model_server = model_server
+        self.model_global = model_global
 
     def forward(self, x):
 
-        h_new = self.model_server(x)
+        h_new = self.model_global(x)
  
         return h_new

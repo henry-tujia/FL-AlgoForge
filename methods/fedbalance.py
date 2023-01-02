@@ -15,7 +15,7 @@ class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
         self.model_global = self.model_type(**client_dict["model_paras"]).to(self.device)
-        self.model_local = resnet20(self.num_classes) if "100" in self.args.dataset else resnet8(self.num_classes).to(self.device)
+        self.model_local = self.model_type(**client_dict["model_paras"]).to(self.device)#resnet20(self.num_classes) if "100" in self.args.dataset else resnet8(self.num_classes).to(self.device)
         self.model = resnet_fedbalance(self.model_local, self.model_global,KD=True)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
@@ -26,14 +26,25 @@ class Client(Base_Client):
 
     def load_client_state_dict(self, server_state_dict):
         paras_old = self.model.state_dict()
+        # print(paras_old.keys())
         paras_new = server_state_dict
 
-        for key in self.upload_keys:
-
-            paras_old[key] = paras_new[key]
+        # for key in self.upload_keys:
+        for key in paras_old.keys():
+            if "local" in key:
+                key_new = key.replace("local","global")
+                paras_old[key] = paras_old[key_new]
+            if "global" in key:
+                paras_old[key] = paras_new[key]
             # print(key)
 
         self.model.load_state_dict(paras_old)
+
+        for name, param in self.model.named_parameters():
+            if "local" in name:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
 
     # def init_client_infos(self):
     #     client_cnts = {}
@@ -57,8 +68,7 @@ class Client(Base_Client):
         dist = client_dis / client_dis.sum()  # 个数的比例
         cdist = dist#/dist.max()
         cdist = cdist.reshape((1, -1))
-
-        # logging.info("Client is {}\t, distance is {}\t".format(idx, cdist))
+        cdist = torch.log(cdist)
 
         return cdist.to(self.device)
 
@@ -70,10 +80,10 @@ class Client(Base_Client):
         self.model.train()
 
         epoch_loss = []
-        epoch_KL = []
+        # epoch_KL = []
         for epoch in range(self.args.epochs):
             batch_loss = []
-            batch_KL = []
+            # batch_KL = []
             for batch_idx, (images, labels) in enumerate(self.train_dataloader):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
@@ -82,29 +92,31 @@ class Client(Base_Client):
                 with autocast():
 
                     h_local = self.model.model_local(images)
-                    h_gloabl = self.model.model_server(images)
+                    h_global = self.model.model_global(images)
 
-                    h_combine = h_local*cidst+h_gloabl
+                    # conf_l = self.model.confidence(h_local)
 
                     # h_local,h_gloabl,probs = self.model(images, cidst)
 
-                    probs_l = torch.softmax(h_local,-1)
-                    probs_g = torch.softmax(h_gloabl,-1)
+                    probs_l = torch.sigmoid(h_local).max()
+                    # probs_g = torch.softmax(h_global,-1)
 
-                    kl = torch.kl_div(probs_l.log(),probs_g.detach()).mean()
+                    h_combine =torch.exp(1-probs_l)*cidst+h_global #
+
+                    # kl = torch.kl_div(probs_l.log(),probs_g.detach()).mean()
 
                     loss = self.criterion(h_combine, labels)
 
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
-                batch_KL.append(kl)
+                # batch_KL.append(kl)
 
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                epoch_KL.append(sum(batch_KL) / len(batch_KL))
-                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}\tKL: {:.6f}  Thread {}  Map {}'.format(
-                    self.client_index, epoch, sum(epoch_loss) / len(epoch_loss),sum(epoch_KL) / len(epoch_KL), current_process()._identity[0], self.client_map[self.round]))
+                # epoch_KL.append(sum(batch_KL) / len(batch_KL))
+                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(
+                    self.client_index, epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
         weights = {key: value for key, value in self.model.cpu(
         ).state_dict().items() if key in self.upload_keys}
         return weights
@@ -127,7 +139,7 @@ class Client(Base_Client):
                 x = x.to(self.device)
                 target = target.to(self.device)
                 with autocast():
-                    logits = self.model.model_server(x)
+                    logits = self.model.model_global(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(logits, 1)
                 if preds is None:
@@ -150,6 +162,6 @@ class Client(Base_Client):
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
-        self.model_server = self.model_type(**server_dict["model_paras"])
-        self.model = resnet_fedbalance_server(self.model_server)
+        self.model_global = self.model_type(**server_dict["model_paras"])
+        self.model = resnet_fedbalance_server(self.model_global)
         # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)

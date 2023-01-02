@@ -16,6 +16,7 @@ class Client(Base_Client):
         self.model = self.model_type(self.num_classes).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.hypers = client_dict["hypers"]
 
     def train(self):
         # train the local model
@@ -36,7 +37,7 @@ class Client(Base_Client):
                     # for fedprox
                     fed_prox_reg = 0.0
                     for param_index, param in enumerate(self.model.parameters()):
-                        fed_prox_reg += ((self.args.mu / 2) * torch.norm((param - global_weight_collector[param_index])) ** 2)
+                        fed_prox_reg += ((self.hypers["mu"] / 2) * torch.norm((param - global_weight_collector[param_index])) ** 2)
                     loss = loss + fed_prox_reg
                     ########
                 loss.backward()

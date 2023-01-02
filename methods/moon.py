@@ -19,7 +19,7 @@ class Client(Base_Client):
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
         self.cos = torch.nn.CosineSimilarity(dim=-1)
-        self.temp = 0.5
+        self.hypers = client_dict["hypers"]
 
 
     def run(self, received_info):
@@ -77,10 +77,10 @@ class Client(Base_Client):
                     nega = self.cos(pro1, pro3)
                     logits = torch.cat((logits, nega.reshape(-1,1)), dim=1)
 
-                    logits /= self.temp
+                    logits /= self.hypers["temp"]
                     labels = torch.zeros(x.size(0)).to(self.device).long()
 
-                    loss2 = self.args.mu * self.criterion(logits, labels)
+                    loss2 = self.hypers["mu"] * self.criterion(logits, labels)
 
                     loss1 = self.criterion(out, target)
                     loss = loss1 + loss2

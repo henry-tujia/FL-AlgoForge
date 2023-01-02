@@ -13,6 +13,7 @@ class Client(Base_Client):
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.hypers = client_dict["hypers"]
 
         # self.client_infos = client_dict["client_infos"]
         # self.client_cnts = self.init_client_infos()
@@ -38,7 +39,7 @@ class Client(Base_Client):
     def get_cdist_inner(self,idx):
         client_dis = self.client_cnts[idx]
 
-        cdist = client_dis * (1.0 - self.args.mu) + self.args.mu
+        cdist = client_dis * (1.0 - self.hypers["mu"]) + self.hypers["mu"]
         cdist = cdist.reshape((1, -1))
 
         return cdist.to(self.device)
