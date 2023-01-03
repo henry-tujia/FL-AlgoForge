@@ -25,6 +25,7 @@ import methods.fedclear as fedclear
 import methods.fedsoft as fedsoft
 import methods.fednova as fednova
 
+import methods.fedopt as fedopt
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
 # from models.alexnet import alexnet as alexnet
@@ -262,6 +263,23 @@ if __name__ == "__main__":
             "ratio":1/(args.client_sample*args.client_number)
         }
 
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num,"hypers":hypers}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos,"hypers":hypers
+                        } for i in range(args.thread_number)]
+
+    elif args.method == 'fedopt':
+        Server = fedopt.Server
+        Client = fedopt.Client
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+        hypers = {
+            "glo_optimizer": "SGD",
+            "glo_lr": 0.1,
+        }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num,"hypers":hypers}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
