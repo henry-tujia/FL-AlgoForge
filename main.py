@@ -24,7 +24,7 @@ import methods.fedmc as fedmc
 import methods.fedclear as fedclear
 import methods.fedsoft as fedsoft
 import methods.fednova as fednova
-
+import methods.fedict as fedict
 import methods.fedopt as fedopt
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
@@ -39,27 +39,27 @@ from models.resnet import resnet32 as resnet32
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 # methods
-sys.path.append('/mnt/data/th')
+sys.path.append('/home/wuxingxing')
 
 
 def add_args(parser):
     # Training settings
-    parser.add_argument('--method', type=str, default='fedavg', metavar='N',
+    parser.add_argument('--method', type=str, default='fedict', metavar='N',
                         help='Options are: fedavg, fedprox, moon, mixup, stochdepth, gradaug, fedalign')
 
     parser.add_argument('--experi', type=str, default='0',
                         help='the times of experi')
 
     parser.add_argument('--dataset', type=str,
-                        default='cinic10', help="name of dataset")
+                        default='cifar10', help="name of dataset")
 
     parser.add_argument('--partition_method', type=str, default='hetero', metavar='N',
                         help='how to partition the dataset on local clients')
 
-    parser.add_argument('--partition_alpha', type=float, default=0.3, metavar='PA',
+    parser.add_argument('--partition_alpha', type=float, default=0.1, metavar='PA',
                         help='alpha value for Dirichlet distribution partitioning of data(default: 0.5)')
 
-    parser.add_argument('--client_number', type=int, default=20, metavar='NN',
+    parser.add_argument('--client_number', type=int, default=100, metavar='NN',
                         help='number of clients in the FL system')
 
     parser.add_argument('--batch_size', type=int, default=64, metavar='N',
@@ -94,6 +94,12 @@ def add_args(parser):
 
     parser.add_argument('--local_valid', type=bool, default=False,
                         help='Local validition or not')
+#For FedBalance
+    parser.add_argument('--local_model', type=str, default="alexnet",
+                        help='Local Model Type')
+
+    parser.add_argument('--weight_method', type=str, default="loss",
+                        help='Weight calculation method')
 
     args = parser.parse_args()
 
@@ -155,7 +161,6 @@ def init_net():
     if args.dataset in ("cifar10", "cinic10", "femnist", "svhn", "digits+feature", "office+feature", "covid"):
         Model = resnet8
     elif args.dataset == "cifar100":
-        print("Here!")
         Model = resnet32
     return Model
 
@@ -171,7 +176,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args = add_args(parser)
 
-    root_path = "/mnt/data/th"
+    root_path = "/home/wuxingxing"
     args.datadir = os.path.join(root_path, "dataset", args.dataset)
 
     if args.dataset == "cifar10":
@@ -328,11 +333,33 @@ if __name__ == "__main__":
         model_paras = {
             "num_classes": class_num
         }
+        hypers = {
+            "model_type": args.local_model
+        }
 
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
+                        } for i in range(args.thread_number)]
+
+    elif args.method == 'fedict':
+        Server = fedict.Server
+        Client = fedict.Client
+
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        hypers = {
+            "weight_method": args.weight_method
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict,"hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrs':
@@ -397,7 +424,7 @@ if __name__ == "__main__":
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
 
-    os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
+    os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7890"
 
     wandb.init(
         project="FedTH",
