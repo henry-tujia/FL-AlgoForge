@@ -1,10 +1,11 @@
 cd .. && ls
 
-for model in "alexnet" "lenet"
+
+for j in 1 2 3
 do
-    for j in 1 2 3
+    for model in "alexnet" "lenet"
     do
-        for m in "cifar10" "cifar100" "cinic10" "covid"
+        for m in "cifar10" "cifar100" "cinic10"
         do
             for i in 0.1 0.3 0.5
             do
