@@ -2,9 +2,9 @@ cd .. && ls
 
 for j in 1 2 3
 do
-    for method in "loss" "logits" "probs"
+    for method in  "logits" "probs" "loss"
     do
-        for m in "cifar10" "cifar100" "cinic10" "covid"
+        for m in "cifar10" "cifar100" "cinic10"
         do
             for i in 0.1 0.3 0.5
             do
