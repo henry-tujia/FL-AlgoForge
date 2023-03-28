@@ -79,7 +79,7 @@ class Client(Base_Client):
                 logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(
                     self.client_index, epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
         weights = {key: value for key, value in self.model.cpu(
-        ).state_dict().items() if key in self.upload_keys}
+        ).state_dict().items()}
         return weights
 
     def test(self):
