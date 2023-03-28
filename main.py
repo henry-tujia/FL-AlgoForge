@@ -177,22 +177,22 @@ if __name__ == "__main__":
     args.datadir = os.path.join(root_path, "dataset", args.dataset)
 
     if args.dataset == "cifar10":
-        from FedML.fedml_api.data_preprocessing.cifar10.data_loader import (
+        from data_preprocessing.cifar10.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "cifar100":
-        from FedML.fedml_api.data_preprocessing.cifar100.data_loader import (
+        from data_preprocessing.cifar100.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "cinic10":
-        from FedML.fedml_api.data_preprocessing.cinic10.data_loader import (
+        from data_preprocessing.cinic10.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "imagenet":
-        from FedML.fedml_api.data_preprocessing.ImageNet.data_loader import (
+        from data_preprocessing.ImageNet.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "emnist":
-        from FedML.fedml_api.data_preprocessing.emnist.data_loader import (
+        from data_preprocessing.emnist.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "covid":
-        from FedML.fedml_api.data_preprocessing.covid.data_loader import (
+        from data_preprocessing.covid.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
     elif args.dataset == "svhn":
         from utils.utils import get_client_dataloader, get_client_idxes_dict
