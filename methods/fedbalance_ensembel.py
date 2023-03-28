@@ -123,9 +123,23 @@ class Client(Base_Client):
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
-        self.model_global = self.model_type(**server_dict["model_paras"])
-        self.model = resnet_fedbalance_server(self.model_global)
+        self.hypers = server_dict["hypers"]
+        self.model_global = self.model_type(**server_dict["model_paras"]).to(self.device)
+        self.model_local = self.init_local_net().to(self.device)
+        self.model = resnet_fedbalance(self.model_local, self.model_global)
         # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+    def init_local_net(self):
+        if self.hypers["model_type"]== "resnet20":
+            return resnet20(self.num_classes)
+        elif self.hypers["model_type"]== "resnet8":
+            return resnet8(self.num_classes)
+        elif self.hypers["model_type"]== "alexnet":
+            return alexnet(self.num_classes)
+        elif self.hypers["model_type"]== "lenet":
+            return lenet(self.num_classes)
+        else:
+            raise Exception("Invalid Local Model! ",self.hypers["model_type"])
+
     def test_inner(self,data):
         self.model.to(self.device)
         self.model.eval()

@@ -342,8 +342,8 @@ if __name__ == "__main__":
 
 
     elif args.method == 'fedbalance_ensemble':
-        Server = fedbalance_ensemble.Server
-        Client = fedbalance_ensemble.Client
+        Server = fedbalance_ensembel.Server
+        Client = fedbalance_ensembel.Client
 
         Model = init_net()
         model_paras = {
@@ -353,7 +353,7 @@ if __name__ == "__main__":
             "model_type": args.local_model
         }
 
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,"hypers":hypers,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
