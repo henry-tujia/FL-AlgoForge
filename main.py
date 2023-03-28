@@ -26,6 +26,8 @@ import methods.fedsoft as fedsoft
 import methods.fednova as fednova
 import methods.fedict as fedict
 import methods.fedopt as fedopt
+import methods.fedmix as fedmix
+import methods.fedbalance_ensembel as fedbalance_ensembel
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
 # from models.alexnet import alexnet as alexnet
@@ -39,12 +41,12 @@ from models.resnet import resnet32 as resnet32
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 # methods
-sys.path.append('/home/wuxingxing')
+sys.path.append('/mnt/data/th')
 
 
 def add_args(parser):
     # Training settings
-    parser.add_argument('--method', type=str, default='fedict', metavar='N',
+    parser.add_argument('--method', type=str, default='fedmix', metavar='N',
                         help='Options are: fedavg, fedprox, moon, mixup, stochdepth, gradaug, fedalign')
 
     parser.add_argument('--experi', type=str, default='0',
@@ -95,7 +97,7 @@ def add_args(parser):
     parser.add_argument('--local_valid', type=bool, default=False,
                         help='Local validition or not')
 #For FedBalance
-    parser.add_argument('--local_model', type=str, default="alexnet",
+    parser.add_argument('--local_model', type=str, default="lenet",
                         help='Local Model Type')
 
     parser.add_argument('--weight_method', type=str, default="loss",
@@ -118,16 +120,11 @@ def set_random_seed(seed=1):
     # uncomment the following lines
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
-
-# Helper Functions
-
-
 def init_process(q, Client):
     set_random_seed()
     global client
     ci = q.get()
     client = Client(ci[0], ci[1])
-
 
 def run_clients(received_info):
     try:
@@ -176,7 +173,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args = add_args(parser)
 
-    root_path = "/home/wuxingxing"
+    root_path = "/mnt/data/th/FedTH/data"
     args.datadir = os.path.join(root_path, "dataset", args.dataset)
 
     if args.dataset == "cifar10":
@@ -343,6 +340,25 @@ if __name__ == "__main__":
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
                         } for i in range(args.thread_number)]
 
+
+    elif args.method == 'fedbalance_ensemble':
+        Server = fedbalance_ensemble.Server
+        Client = fedbalance_ensemble.Client
+
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+        hypers = {
+            "model_type": args.local_model
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
+                        } for i in range(args.thread_number)]
+
     elif args.method == 'fedict':
         Server = fedict.Server
         Client = fedict.Client
@@ -420,17 +436,37 @@ if __name__ == "__main__":
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
 
+    elif args.method == 'fedmix':
+        Server = fedmix.Server
+        Client = fedmix.Client
+
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        hypers = {
+            "model_type": args.local_model,
+            "weight_method": args.weight_method
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
+                        } for i in range(args.thread_number)]
+
     else:
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
 
-    os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7890"
+    os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
 
     wandb.init(
         project="FedTH",
         group=args.method,
         entity="henrytujia",
-        job_type="Bash Script")
+        job_type="Test")
 
     wandb.config.update(args)
 
@@ -442,7 +478,7 @@ if __name__ == "__main__":
     # Start server and get initial outputs
     pool = cm.DreamPool(args.thread_number, init_process,
                         (client_info, Client))
-    # init server
+    # init server 
     server_dict['save_path'] = '{}/logs/{}__{}_e{}_c{}'.format(os.getcwd(),
                                                                time.strftime("%Y%m%d_%H%M%S"), args.method, args.epochs, args.client_number)
     if not os.path.exists(server_dict['save_path']):
