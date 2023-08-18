@@ -20,14 +20,7 @@ import methods.fedbalance as fedbalance
 import methods.fedprox as fedprox
 import methods.fedrs as fedrs
 import methods.moon as moon
-import methods.fedmc as fedmc
-import methods.fedclear as fedclear
-import methods.fedsoft as fedsoft
-import methods.fednova as fednova
 import methods.fedict as fedict
-import methods.fedopt as fedopt
-import methods.fedmix as fedmix
-import methods.fedbalance_ensembel as fedbalance_ensembel
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
 # from models.alexnet import alexnet as alexnet
@@ -254,58 +247,6 @@ if __name__ == "__main__":
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
-                        } for i in range(args.thread_number)]
-    elif args.method == 'fednova':
-        Server = fednova.Server
-        Client = fednova.Client
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-        hypers = {
-            "gmf": 0.5,
-            "prox_mu": 1e-3,
-            "ratio": 1/(args.client_sample*args.client_number)
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num, "hypers": hypers}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
-                        } for i in range(args.thread_number)]
-
-    elif args.method == 'fedopt':
-        Server = fedopt.Server
-        Client = fedopt.Client
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-        hypers = {
-            "glo_optimizer": "SGD",
-            "glo_lr": 0.1,
-        }
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num, "hypers": hypers}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
-                        } for i in range(args.thread_number)]
-
-    elif args.method == 'fedmc':
-        Server = fedmc.Server
-        Client = fedmc.Client
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-        hypers = {
-            "mu": 2
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'moon':

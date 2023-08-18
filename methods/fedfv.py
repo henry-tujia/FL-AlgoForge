@@ -5,6 +5,7 @@ from torch.multiprocessing import current_process
 import torch.nn as nn
 import numpy as np
 
+
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
@@ -27,8 +28,8 @@ class Client(Base_Client):
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
                 logits = self.model(images)
-                calibrated_logits = logits-cidst
-                loss = self.criterion(calibrated_logits, labels)
+
+                loss = self.criterion(logits, labels)
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
@@ -43,11 +44,7 @@ class Client(Base_Client):
                    value in self.model.cpu().state_dict().items()}
         return weights
 
- 
     def test(self):
-
-        if len(self.acc_dataloader) == 0:
-            return 0
 
         cidst = self.get_cdist(self.client_index)
         self.model.to(self.device)
@@ -60,7 +57,7 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                
+
                 logits = self.model(x)
 
                 calibrated_logits = logits-cidst
@@ -70,17 +67,18 @@ class Client(Base_Client):
                     preds = predicted.cpu()
                     labels = target.cpu()
                 else:
-                    preds = torch.concat((preds,predicted.cpu()),dim=0)
-                    labels = torch.concat((labels,target.cpu()),dim=0)
+                    preds = torch.concat((preds, predicted.cpu()), dim=0)
+                    labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (((preds == labels) * (labels == c)).float() /
+                        (max((labels == c).sum(), 1))).sum().cpu()
             if acc is None:
-                acc = temp_acc.reshape((1,-1))
+                acc = temp_acc.reshape((1, -1))
             else:
-                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
-        weighted_acc = acc.reshape((1,-1)).mean()
+                acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
+        weighted_acc = acc.reshape((1, -1)).mean()
         logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc
 
 
@@ -88,4 +86,3 @@ class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(**server_dict["model_paras"])
-
