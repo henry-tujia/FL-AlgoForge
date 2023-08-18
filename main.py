@@ -96,7 +96,7 @@ def add_args(parser):
 
     parser.add_argument('--local_valid', type=bool, default=False,
                         help='Local validition or not')
-#For FedBalance
+# For FedBalance
     parser.add_argument('--local_model', type=str, default="lenet",
                         help='Local Model Type')
 
@@ -120,11 +120,14 @@ def set_random_seed(seed=1):
     # uncomment the following lines
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
+
+
 def init_process(q, Client):
     set_random_seed()
     global client
     ci = q.get()
     client = Client(ci[0], ci[1])
+
 
 def run_clients(received_info):
     try:
@@ -250,7 +253,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
     elif args.method == 'fednova':
         Server = fednova.Server
@@ -262,13 +265,13 @@ if __name__ == "__main__":
         hypers = {
             "gmf": 0.5,
             "prox_mu": 1e-3,
-            "ratio":1/(args.client_sample*args.client_number)
+            "ratio": 1/(args.client_sample*args.client_number)
         }
 
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num,"hypers":hypers}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num, "hypers": hypers}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedopt':
@@ -283,9 +286,9 @@ if __name__ == "__main__":
             "glo_lr": 0.1,
         }
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num,"hypers":hypers}
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num, "hypers": hypers}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedmc':
@@ -302,7 +305,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'moon':
@@ -319,7 +322,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedbalance':
@@ -337,26 +340,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
-                        } for i in range(args.thread_number)]
-
-
-    elif args.method == 'fedbalance_ensemble':
-        Server = fedbalance_ensembel.Server
-        Client = fedbalance_ensembel.Client
-
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-        hypers = {
-            "model_type": args.local_model
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,"hypers":hypers,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedict':
@@ -375,7 +359,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrs':
@@ -391,7 +375,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict,"hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrod':
@@ -407,55 +391,6 @@ if __name__ == "__main__":
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
-    elif args.method == 'fedclear':
-        Server = fedclear.Server
-        Client = fedclear.Client
-
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
-                        } for i in range(args.thread_number)]
-    elif args.method == 'fedsoft':
-        Server = fedsoft.Server
-        Client = fedsoft.Client
-
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras_local, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
-                        } for i in range(args.thread_number)]
-
-    elif args.method == 'fedmix':
-        Server = fedmix.Server
-        Client = fedmix.Client
-
-        Model = init_net()
-        model_paras = {
-            "num_classes": class_num
-        }
-
-        hypers = {
-            "model_type": args.local_model,
-            "weight_method": args.weight_method
-        }
-
-        server_dict = {'train_data': test_dl, 'test_data': test_dl,
-                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
-        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict ,"hypers":hypers
-                        } for i in range(args.thread_number)]
-
     else:
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
@@ -478,7 +413,7 @@ if __name__ == "__main__":
     # Start server and get initial outputs
     pool = cm.DreamPool(args.thread_number, init_process,
                         (client_info, Client))
-    # init server 
+    # init server
     server_dict['save_path'] = '{}/logs/{}__{}_e{}_c{}'.format(os.getcwd(),
                                                                time.strftime("%Y%m%d_%H%M%S"), args.method, args.epochs, args.client_number)
     if not os.path.exists(server_dict['save_path']):
@@ -499,7 +434,6 @@ if __name__ == "__main__":
 
         res = np.array([x['results'] for x in client_outputs])  # .sum()
 
-        # local_acc += res
         server_outputs, acc = server.run(client_outputs)
         wandb.log({"local_test_acc": res}, step=r)
         wandb.log({'global_test_acc': acc}, step=r)

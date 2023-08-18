@@ -4,53 +4,18 @@ from methods.base import Base_Client, Base_Server
 from torch.multiprocessing import current_process
 import torch.nn as nn
 import numpy as np
-from torch.cuda.amp import autocast as autocast
-
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        # client_dict["model_paras"].update({"KD":True})
         self.model = self.model_type(
             **client_dict["model_paras"]).to(self.device)
-        # self.criterion = My_loss().to(self.device)
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
-        self.nll = nn.NLLLoss().to(self.device)
         self.hypers = client_dict["hypers"]
-        # self.client_infos = client_dict["client_infos"]
-        # self.client_cnts = self.init_client_infos()
-
-    # def init_client_infos(self):
-    #     client_cnts = {}
-    #     # print(self.client_infos)
-
-    #     for client, info in self.client_infos.items():
-    #         cnts = []
-    #         for c in range(self.num_classes):
-    #             if c in info.keys():
-    #                 num = info[c]
-    #             else:
-    #                 num = 0
-    #             cnts.append(num)
-
-    #         cnts = torch.FloatTensor(np.array(cnts))
-    #         client_cnts.update({client: cnts})
-    #     # print(client_cnts)
-    #     return client_cnts
-    def get_cdist(self, idx):
-        client_dis = self.client_cnts[idx]
-
-        client_dis = client_dis**(-0.25)*self.args.mu
-        client_dis = torch.where(torch.isinf(client_dis), torch.full_like(client_dis, 0), client_dis)
-        cdist = client_dis.reshape((1, -1))
-
-
-        return cdist.to(self.device)
 
     def train(self):
-
-        cidst = self.get_cdist(self.client_index)
         # train the local model
         self.model.to(self.device)
         self.model.train()
@@ -78,42 +43,6 @@ class Client(Base_Client):
                    value in self.model.cpu().state_dict().items()}
         return weights
 
-
-    def criterion(self,x,y):
-
-        # print(x.shape,y.shape)
-
-        targ1hot = torch.zeros(x.shape,device=self.device).scatter(1, y.reshape((-1,1)), 1.0)
-
-        up = x.exp()
-        # print(up)
-
-        select_item = (up*targ1hot).sum(dim=1,keepdim=True)
-        down = up.sum(dim=1,keepdim=True)-select_item
-
-        # probs = select_item/down
-
-        log_probs = -(torch.log(select_item)-torch.log(down))
-
-        # log_probs_selletc = (log_probs*targ1hot).sum(dim=1,keepdim=True)
-
-        loss = log_probs.mean()
-
-
-        if torch.isinf(loss).any() or torch.isnan(loss).any():
-            print("up_old",up)
-            print("select_item",select_item)
-            print("up",up.sum(dim=1,keepdim=True))
-            print("down",down)
-            print("log_probs",log_probs)
-
-                    
-
-        # input("wait")
-
-        # loss =self.nll(log_probs,y)
-
-        return loss
  
     def test(self):
 
@@ -131,8 +60,8 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    logits = self.model(x)
+                
+                logits = self.model(x)
 
                 calibrated_logits = logits-cidst
                 # loss = self.criterion(pred, target)
@@ -159,4 +88,4 @@ class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
         self.model = self.model_type(**server_dict["model_paras"])
-        # self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
+

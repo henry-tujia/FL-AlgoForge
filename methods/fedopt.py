@@ -2,17 +2,22 @@ import copy
 import torch
 from methods.base import Base_Client, Base_Server
 
+
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
-        
+        self.optimizer = torch.optim.SGD(self.model.parameters(
+        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+
+
 class Server(Base_Server):
-    def __init__(self,server_dict, args):
+    def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
-        self.model = self.model_type(**server_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(
+            **server_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.hypers = server_dict["hypers"]
         self.global_optimizer = self._initialize_global_optimizer()
@@ -40,7 +45,7 @@ class Server(Base_Server):
             ))
         return global_optimizer
 
-    def operations(self,client_info):
+    def operations(self, client_info):
         client_info.sort(key=lambda tup: tup['client_index'])
         client_sd = [c['weights'] for c in client_info]
         cw = [c['num_samples']/sum([x['num_samples']

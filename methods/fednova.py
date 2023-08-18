@@ -8,7 +8,7 @@ import logging
 from methods.base import Base_Client, Base_Server
 import copy
 from torch.multiprocessing import current_process
-from torch.cuda.amp import autocast as autocast
+
 from torch.optim.optimizer import Optimizer
 
 
@@ -186,9 +186,9 @@ class Client(Base_Client):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
-                with autocast():
-                    log_probs = self.model(images)
-                    loss = self.criterion(log_probs, labels)
+
+                log_probs = self.model(images)
+                loss = self.criterion(log_probs, labels)
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
@@ -246,9 +246,11 @@ class Server(Base_Server):
         for k in local_grads[0].keys():
             for i in range(0, len(local_grads)):
                 if i == 0:
-                    cum_grad[k] = (local_grads[i][k] * tau_eff).to(torch.device("cpu"))
+                    cum_grad[k] = (local_grads[i][k] *
+                                   tau_eff).to(torch.device("cpu"))
                 else:
-                    cum_grad[k] += (local_grads[i][k] * tau_eff).to(torch.device("cpu"))
+                    cum_grad[k] += (local_grads[i][k] *
+                                    tau_eff).to(torch.device("cpu"))
 
         for k in ssd.keys():
             if self.hypers["gmf"] != 0:
@@ -291,4 +293,3 @@ class Server(Base_Server):
         #         torch.save(
         #             client['weights'], '{}/client_{}.pt'.format(self.save_path, client['client_index']))
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
-

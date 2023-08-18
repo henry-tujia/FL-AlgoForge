@@ -11,7 +11,7 @@ from models.resnet import resnet8 as resnet8
 from models.resnet import resnet20 as resnet20
 from models.alexnet import alexnet
 from models.lenet import lenet
-from torch.cuda.amp import autocast as autocast
+
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
@@ -69,9 +69,9 @@ class Client(Base_Client):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
-                with autocast():
-                    probs = self.model(images, cidst)
-                    loss = self.criterion(probs, labels)
+                
+                probs = self.model(images, cidst)
+                loss = self.criterion(probs, labels)
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
@@ -101,8 +101,8 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    logits = self.model.model_global(x)
+                
+                logits = self.model.model_global(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(logits, 1)
                 if preds is None:

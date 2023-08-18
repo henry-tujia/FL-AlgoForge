@@ -3,7 +3,6 @@ import torch
 import logging
 import json
 from torch.multiprocessing import current_process
-from torch.cuda.amp import autocast as autocast
 
 
 class Base_Client():
@@ -27,16 +26,16 @@ class Base_Client():
         self.client_infos = client_dict["client_infos"]
         self.weight_test = None
 
-    def get_last_round(self,client_idx):
+    def get_last_round(self, client_idx):
         return self.last_select_round_dict[client_idx]
 
     def load_client_state_dict(self, server_state_dict):
         # If you want to customize how to state dict is loaded you can do so here
         self.model.load_state_dict(server_state_dict)
 
-    def get_cdist_test(self,client_idx):
+    def get_cdist_test(self, client_idx):
         client_dis = self.client_cnts[client_idx]
-        dist = client_dis / client_dis.sum() #个数的比例
+        dist = client_dis / client_dis.sum()  # 个数的比例
         cdist = dist
         return cdist.to(self.device)
 
@@ -68,14 +67,16 @@ class Base_Client():
             self.client_cnts = self.init_client_infos()
             num_samples = len(self.train_dataloader)*self.args.batch_size
             weights = self.train()
-            if self.args.local_valid: #and self.round == last_round:
-                self.weight_test = self.get_cdist_test(client_idx).reshape((1,-1))
+            if self.args.local_valid:  # and self.round == last_round:
+                self.weight_test = self.get_cdist_test(
+                    client_idx).reshape((1, -1))
                 self.acc_dataloader = self.test_dataloader
                 after_test_acc = self.test()
             else:
                 after_test_acc = 0
 
-            client_results.append({'weights': weights, 'num_samples': num_samples, 'results': after_test_acc, 'client_index': self.client_index})
+            client_results.append({'weights': weights, 'num_samples': num_samples,
+                                  'results': after_test_acc, 'client_index': self.client_index})
             if self.args.client_sample < 1.0 and self.train_dataloader._iterator is not None:
                 self.train_dataloader._iterator._shutdown_workers()
 
@@ -93,9 +94,9 @@ class Base_Client():
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.optimizer.zero_grad()
-                with autocast():
-                    log_probs = self.model(images)
-                    loss = self.criterion(log_probs, labels)
+
+                log_probs = self.model(images)
+                loss = self.criterion(log_probs, labels)
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
@@ -118,8 +119,8 @@ class Base_Client():
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    pred = self.model(x)
+
+                pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
 
@@ -127,18 +128,19 @@ class Base_Client():
                     preds = predicted.cpu()
                     labels = target.cpu()
                 else:
-                    preds = torch.concat((preds,predicted.cpu()),dim=0)
-                    labels = torch.concat((labels,target.cpu()),dim=0)
+                    preds = torch.concat((preds, predicted.cpu()), dim=0)
+                    labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (((preds == labels) * (labels == c)).float() /
+                        (max((labels == c).sum(), 1))).sum().cpu()
             if acc is None:
-                acc = temp_acc.reshape((1,-1))
+                acc = temp_acc.reshape((1, -1))
             else:
-                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
+                acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         # print(acc.device,self.weight_test.device)
-        weighted_acc = acc.reshape((1,-1)).mean()
+        weighted_acc = acc.reshape((1, -1)).mean()
         logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc
 
 
@@ -194,7 +196,7 @@ class Base_Server():
                     client['weights'], '{}/client_{}.pt'.format(self.save_path, client['client_index']))
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
 
-    def test_inner(self,data):
+    def test_inner(self, data):
         self.model.to(self.device)
         self.model.eval()
 
@@ -205,8 +207,7 @@ class Base_Server():
             for batch_idx, (x, target) in enumerate(data):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    pred = self.model(x)
+                pred = self.model(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(pred, 1)
                 correct = predicted.eq(target).sum()
@@ -219,24 +220,8 @@ class Base_Server():
             #     "************* Server Acc = {:.2f} **************".format(acc))
         return acc, test_sample_number
 
-    def test_mutildata(self):
-        res = []
-        for data in self.test_data:
-            res.append(self.test_inner(data))
-        # print(res)
-        res = np.array(res)
-        total = res[:, -1].sum()
-        res = (res[:, :-1].transpose()*res[:, -1]).transpose().sum(0)
-        # print(res)
-        loss, acc = res/total
-
-        return loss, acc
-
     def test(self):
-        if isinstance(self.test_data, list):
-            loss, acc = self.test_mutildata()
-        else:
-            acc, _ = self.test_inner(self.test_data)
+        acc, _ = self.test_inner(self.test_data)
         logging.info(
             "************* Server Acc = {:.2f} **************".format(acc))
         return acc

@@ -9,16 +9,21 @@ from torch.multiprocessing import current_process
 import numpy as np
 from models.resnet import resnet8 as resnet8
 from models.resnet import resnet20 as resnet20
-from torch.cuda.amp import autocast as autocast
+
 
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model_global = self.model_type(**client_dict["model_paras"]).to(self.device)
-        self.model_local = self.model_type(**client_dict["model_paras"]).to(self.device)#resnet20(self.num_classes) if "100" in self.args.dataset else resnet8(self.num_classes).to(self.device)
-        self.model = resnet_fedbalance(self.model_local, self.model_global,KD=True)
+        self.model_global = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
+        # resnet20(self.num_classes) if "100" in self.args.dataset else resnet8(self.num_classes).to(self.device)
+        self.model_local = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
+        self.model = resnet_fedbalance(
+            self.model_local, self.model_global, KD=True)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
-        self.criterion_inner = torch.nn.CrossEntropyLoss(reduction="none").to(self.device)
+        self.criterion_inner = torch.nn.CrossEntropyLoss(
+            reduction="none").to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
         self.hypers = client_dict["hypers"]
@@ -33,7 +38,7 @@ class Client(Base_Client):
         # for key in self.upload_keys:
         for key in paras_old.keys():
             if "local" in key:
-                key_new = key.replace("local","global")
+                key_new = key.replace("local", "global")
                 paras_old[key] = paras_old[key_new]
             if "global" in key:
                 paras_old[key] = paras_new[key]
@@ -51,7 +56,7 @@ class Client(Base_Client):
         client_dis = self.client_cnts[idx]
 
         dist = client_dis / client_dis.sum()  # 个数的比例
-        cdist = dist#/dist.max()
+        cdist = dist  # /dist.max()
         cdist = cdist.reshape((1, -1))
         cdist = torch.log(cdist)
 
@@ -74,28 +79,28 @@ class Client(Base_Client):
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
 
-                with autocast():
+                h_local = self.model.model_local(images)
+                h_global = self.model.model_global(images)
 
-                    h_local = self.model.model_local(images)
-                    h_global = self.model.model_global(images)
+                if self.hypers["weight_method"] == "logits":
+                    probs_l = torch.sigmoid(h_local).max()
+                    h_combine = torch.exp(1-probs_l)*cidst+h_global
+                elif self.hypers["weight_method"] == "probs":
+                    probs_l = torch.softmax(h_local, -1)
+                    h_combine = probs_l*cidst+h_global
+                elif self.hypers["weight_method"] == "loss":
+                    probs_l = torch.softmax(h_local, -1)
+                    loss_inner = self.criterion_inner(
+                        probs_l, labels).reshape(-1, 1)
+                    # print()
+                    # raise Exception("loss_inner is ",loss_inner.size())
+                    # loss_inner = torch.mean(self.criterion_inner(probs_l, labels), 1)
+                    h_combine = torch.sigmoid(loss_inner)*cidst+h_global
+                else:
+                    raise Exception("Invalid Weight Method!",
+                                    self.hypers["weight_method"])
 
-                    if self.hypers["weight_method"] == "logits":
-                        probs_l = torch.sigmoid(h_local).max()
-                        h_combine =torch.exp(1-probs_l)*cidst+h_global #
-                    elif self.hypers["weight_method"] == "probs":
-                        probs_l = torch.softmax(h_local,-1)
-                        h_combine =probs_l*cidst+h_global
-                    elif self.hypers["weight_method"] == "loss":
-                        probs_l = torch.softmax(h_local,-1)
-                        loss_inner = self.criterion_inner(probs_l, labels).reshape(-1,1)
-                        # print()
-                        # raise Exception("loss_inner is ",loss_inner.size())
-                        # loss_inner = torch.mean(self.criterion_inner(probs_l, labels), 1)
-                        h_combine =torch.sigmoid(loss_inner)*cidst+h_global
-                    else:
-                        raise Exception("Invalid Weight Method!",self.hypers["weight_method"])
-
-                    loss = self.criterion(h_combine, labels)
+                loss = self.criterion(h_combine, labels)
 
                 loss.backward()
                 self.optimizer.step()
@@ -128,27 +133,29 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                with autocast():
-                    logits = self.model.model_global(x)
+
+                logits = self.model.model_global(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(logits, 1)
                 if preds is None:
                     preds = predicted.cpu()
                     labels = target.cpu()
                 else:
-                    preds = torch.concat((preds,predicted.cpu()),dim=0)
-                    labels = torch.concat((labels,target.cpu()),dim=0)
+                    preds = torch.concat((preds, predicted.cpu()), dim=0)
+                    labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (((preds == labels) * (labels == c)).float() /
+                        (max((labels == c).sum(), 1))).sum().cpu()
             if acc is None:
-                acc = temp_acc.reshape((1,-1))
+                acc = temp_acc.reshape((1, -1))
             else:
-                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
-        weighted_acc = acc.reshape((1,-1)).mean()
+                acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
+        weighted_acc = acc.reshape((1, -1)).mean()
         logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc
-        
+
+
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)
