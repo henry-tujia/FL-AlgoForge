@@ -10,6 +10,10 @@ import sys
 import time
 from collections import defaultdict
 
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import data_preprocessing.custom_multiprocess as cm
 import methods.fedavg as fedavg
 import methods.fedbalance as fedbalance
