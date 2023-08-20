@@ -2,9 +2,7 @@ import copy
 import logging
 import math
 
-import numpy as np
 import torch
-import torch.nn as nn
 from methods.base import Base_Client, Base_Server
 from torch.autograd import Variable
 from torch.multiprocessing import current_process
