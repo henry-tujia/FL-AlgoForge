@@ -8,7 +8,7 @@ __all__ = ["resnet20", "resnet32", "resnet44",
 
 
 class Resnet8(fl.Model):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, KD, projection, *args, **kwargs):
         super(Resnet8, self).__init__()
         self.input_require_shape = [3, -1, -1]
         self.target_require_shape = []
@@ -26,7 +26,7 @@ class Resnet8(fl.Model):
 
 
 class Resnet32(fl.Model):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, KD, projection, *args, **kwargs):
         super(Resnet8, self).__init__()
         self.input_require_shape = [3, -1, -1]
         self.target_require_shape = []
