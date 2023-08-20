@@ -10,26 +10,25 @@ import sys
 import time
 from collections import defaultdict
 
-import numpy as np
-import torch
-from torch.multiprocessing import Queue, set_start_method
-
 import data_preprocessing.custom_multiprocess as cm
 import methods.fedavg as fedavg
 import methods.fedbalance as fedbalance
+import methods.fedfv as fedfv
+import methods.fedict as fedict
 import methods.fedprox as fedprox
 import methods.fedrs as fedrs
 import methods.moon as moon
-import methods.fedict as fedict
-import methods.fedfv as fedfv
-# from torch.utils.tensorboard import SummaryWriter
+import numpy as np
+import torch
 import wandb
+# from models.resnet import resnet32 as resnet
+from models.Resnet_ import Resnet8 as resnet8
+from models.Resnet_ import Resnet32 as resnet32
+from torch.multiprocessing import Queue, set_start_method
+
 # from models.alexnet import alexnet as alexnet
 # from models.preresnet import preresnet20 as preresnet
 
-# from models.resnet import resnet32 as resnet
-from models.resnet import resnet8 as resnet8
-from models.resnet import resnet32 as resnet32
 
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -310,7 +309,9 @@ if __name__ == "__main__":
 
         Model = init_net()
         model_paras = {
-            "num_classes": class_num
+            "num_classes": class_num,
+            "KD":False,
+            "projection":False
         }
 
         hypers = {

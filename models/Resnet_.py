@@ -1,10 +1,46 @@
-# -*-coding:utf-8-*-
-
-
-
+import Mutil_FL_Training as fl
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-__all__ = ["resnet20", "resnet32", "resnet44", "resnet56", "resnet110", "resnet1202"]
+__all__ = ["resnet20", "resnet32", "resnet44",
+           "resnet56", "resnet110", "resnet1202"]
+
+
+class Resnet8(fl.Model):
+    def __init__(self, *args, **kwargs):
+        super(Resnet8, self).__init__()
+        self.input_require_shape = [3, -1, -1]
+        self.target_require_shape = []
+        self.KD = KD
+        self.projection = projection
+
+    def generate_net(self, input_data_shape, target_class_num, *args, **kwargs):
+        self.name = 'Resnet8'
+        self.model = ResNet(depth=8, num_classes=target_class_num,
+                            KD=self.KD, projection=self.projection)
+        self.create_Loc_reshape_list()
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class Resnet32(fl.Model):
+    def __init__(self, *args, **kwargs):
+        super(Resnet8, self).__init__()
+        self.input_require_shape = [3, -1, -1]
+        self.target_require_shape = []
+        self.KD = KD
+        self.projection = projection
+
+    def generate_net(self, input_data_shape, target_class_num, *args, **kwargs):
+        self.name = 'Resnet32'
+        self.model = ResNet(depth=32, num_classes=target_class_num,
+                            KD=self.KD, projection=self.projection)
+        self.create_Loc_reshape_list()
+
+    def forward(self, x):
+        return self.model(x)
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -87,7 +123,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, depth, num_classes, block_name="BasicBlock",KD = False,projection = False):
+    def __init__(self, depth, num_classes, block_name="BasicBlock", KD=False, projection=False):
         super(ResNet, self).__init__()
         # Model type specifies number of layers for CIFAR-10 model
         if block_name == "BasicBlock":
@@ -168,18 +204,20 @@ class ResNet(nn.Module):
             if self.projection:
                 x = self.projection_layer(x)
                 logits = self.fc(x)
-            return x,logits
+            return x, logits
         return logits
 
-def resnet8(num_classes,KD=False,projection = False):
-    return ResNet(depth=8, num_classes=num_classes,KD=KD,projection=projection)
 
-def resnet20(num_classes,KD=False,projection = False):
-    return ResNet(depth=20, num_classes=num_classes,KD=KD,projection=projection)
+def resnet8(num_classes, KD=False, projection=False):
+    return ResNet(depth=8, num_classes=num_classes, KD=KD, projection=projection)
 
 
-def resnet32(num_classes,KD=False,projection = False):
-    return ResNet(depth=32, num_classes=num_classes,KD=KD,projection=projection)
+def resnet20(num_classes, KD=False, projection=False):
+    return ResNet(depth=20, num_classes=num_classes, KD=KD, projection=projection)
+
+
+def resnet32(num_classes, KD=False, projection=False):
+    return ResNet(depth=32, num_classes=num_classes, KD=KD, projection=projection)
 
 
 def resnet44(num_classes):
