@@ -14,10 +14,11 @@ class Resnet8(fl.Model):
         self.target_require_shape = []
         self.KD = KD
         self.projection = projection
+        self.generate_net()
 
-    def generate_net(self, input_data_shape, target_class_num, *args, **kwargs):
+    def generate_net(self, input_data_shape, num_classes, *args, **kwargs):
         self.name = 'Resnet8'
-        self.model = ResNet(depth=8, num_classes=target_class_num,
+        self.model = ResNet(depth=8, num_classes=num_classes,
                             KD=self.KD, projection=self.projection)
         self.create_Loc_reshape_list()
 
@@ -32,10 +33,11 @@ class Resnet32(fl.Model):
         self.target_require_shape = []
         self.KD = KD
         self.projection = projection
+        self.generate_net()
 
-    def generate_net(self, input_data_shape, target_class_num, *args, **kwargs):
+    def generate_net(self, input_data_shape, num_classes, *args, **kwargs):
         self.name = 'Resnet32'
-        self.model = ResNet(depth=32, num_classes=target_class_num,
+        self.model = ResNet(depth=32, num_classes=num_classes,
                             KD=self.KD, projection=self.projection)
         self.create_Loc_reshape_list()
 
