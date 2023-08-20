@@ -71,7 +71,7 @@ class Client(Base_Client):
             self.client_cnts = self.init_client_infos()
             num_samples = len(self.train_dataloader)*self.args.batch_size
 
-            weights, l_loacl = self.train_once()
+            weights, l_loacl = self.train()
             if self.args.local_valid:  # and self.round == last_round:
                 self.weight_test = self.get_cdist_test(
                     client_idx).reshape((1, -1))
