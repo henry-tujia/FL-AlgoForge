@@ -1,4 +1,4 @@
-import Mutil_FL_Training as fl
+import fl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
