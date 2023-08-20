@@ -8,17 +8,18 @@ __all__ = ["resnet20", "resnet32", "resnet44",
 
 
 class Resnet8(fl.Model):
-    def __init__(self, KD, projection, *args, **kwargs):
+    def __init__(self, num_classes, KD=False, projection=False, *args, **kwargs):
         super(Resnet8, self).__init__()
         self.input_require_shape = [3, -1, -1]
         self.target_require_shape = []
         self.KD = KD
         self.projection = projection
+        self.num_classes = num_classes
         self.generate_net()
 
-    def generate_net(self, input_data_shape, num_classes, *args, **kwargs):
+    def generate_net(self):
         self.name = 'Resnet8'
-        self.model = ResNet(depth=8, num_classes=num_classes,
+        self.model = ResNet(depth=8, num_classes=self.num_classes,
                             KD=self.KD, projection=self.projection)
         self.create_Loc_reshape_list()
 
@@ -27,17 +28,18 @@ class Resnet8(fl.Model):
 
 
 class Resnet32(fl.Model):
-    def __init__(self, KD, projection, *args, **kwargs):
+    def __init__(self, num_classes, KD=False, projection=False, *args, **kwargs):
         super(Resnet8, self).__init__()
         self.input_require_shape = [3, -1, -1]
         self.target_require_shape = []
         self.KD = KD
         self.projection = projection
+        self.num_classes = num_classes
         self.generate_net()
 
-    def generate_net(self, input_data_shape, num_classes, *args, **kwargs):
+    def generate_net(self):
         self.name = 'Resnet32'
-        self.model = ResNet(depth=32, num_classes=num_classes,
+        self.model = ResNet(depth=32, num_classes=self.num_classes,
                             KD=self.KD, projection=self.projection)
         self.create_Loc_reshape_list()
 
