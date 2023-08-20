@@ -83,11 +83,14 @@ def add_args(parser):
 
     parser.add_argument('--local_valid', type=bool, default=False,
                         help='Local validition or not')
-# For FedBalance
+# For FedIct
     parser.add_argument('--local_model', type=str, default="lenet",
                         help='Local Model Type')
 
     parser.add_argument('--weight_method', type=str, default="loss",
+                        help='Weight calculation method')
+
+    parser.add_argument('--proxy', type=str, default="",
                         help='Weight calculation method')
 
     args = parser.parse_args()
@@ -303,13 +306,12 @@ if __name__ == "__main__":
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
 
-    os.environ["HTTPS_PROXY"] = "http://10.21.0.15:7890"
+    if len(args.proxy):
+        os.environ["HTTPS_PROXY"] = args.proxy
 
     wandb.init(
-        project="FedTH",
-        group=args.method,
-        entity="henrytujia",
-        job_type="Test")
+        project="Grad_Projection",
+        group=args.method)
 
     wandb.config.update(args)
 
@@ -341,7 +343,6 @@ if __name__ == "__main__":
         client_outputs = [c for sublist in client_outputs for c in sublist]
 
         res = np.array([x['results'] for x in client_outputs])  # .sum()
-
         server_outputs, acc = server.run(client_outputs)
         wandb.log({"local_test_acc": res}, step=r)
         wandb.log({'global_test_acc': acc}, step=r)
