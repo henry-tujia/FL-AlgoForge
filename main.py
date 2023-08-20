@@ -42,9 +42,6 @@ def add_args(parser):
     parser.add_argument('--method', type=str, default='fedmix', metavar='N',
                         help='Options are: fedavg, fedprox, moon, mixup, stochdepth, gradaug, fedalign')
 
-    parser.add_argument('--experi', type=str, default='0',
-                        help='the times of experi')
-
     parser.add_argument('--dataset', type=str,
                         default='cifar10', help="name of dataset")
 
@@ -74,9 +71,6 @@ def add_args(parser):
 
     parser.add_argument('--pretrained', action='store_true', default=False,
                         help='test pretrained model')
-
-    parser.add_argument('--mu', type=float, default=0.45, metavar='MU',
-                        help='mu value for various methods')
 
     parser.add_argument('--save_client', action='store_true', default=False,
                         help='Save client checkpoints each round')
@@ -178,24 +172,8 @@ if __name__ == "__main__":
     elif args.dataset == "cifar100":
         from data_preprocessing.cifar100.data_loader import (
             get_client_dataloader, get_client_idxes_dict)
-    elif args.dataset == "cinic10":
-        from data_preprocessing.cinic10.data_loader import (
-            get_client_dataloader, get_client_idxes_dict)
-    elif args.dataset == "imagenet":
-        from data_preprocessing.ImageNet.data_loader import (
-            get_client_dataloader, get_client_idxes_dict)
-    elif args.dataset == "emnist":
-        from data_preprocessing.emnist.data_loader import (
-            get_client_dataloader, get_client_idxes_dict)
-    elif args.dataset == "covid":
-        from data_preprocessing.covid.data_loader import (
-            get_client_dataloader, get_client_idxes_dict)
-    elif args.dataset == "svhn":
-        from utils.utils import get_client_dataloader, get_client_idxes_dict
-    elif "feature" in args.dataset:
-        from FedTH.data.digits_feature import (get_client_dataloader,
-                                               get_client_idxes_dict)
-
+    else:
+        raise ValueError("Unrecognized Dataset!")
     dict_client_idexes, class_num, client_infos = get_client_idxes_dict(
         args.datadir, args.partition_method, args.partition_alpha, args.client_number)
     test_dl = get_client_dataloader(
@@ -204,17 +182,6 @@ if __name__ == "__main__":
     mapping_dict = allocate_clients_to_threads(args)
 
     class_last_select_dict = {k: 0 for k in range(args.client_number)}
-
-    import operator
-    import functools
-
-    for round_inner in range(args.comm_round):
-        clients_round = functools.reduce(
-            operator.concat, [x[round_inner] for x in mapping_dict.values()])
-        for client_inner in clients_round:
-            class_last_select_dict[client_inner] = max(
-                class_last_select_dict[client_inner], round_inner)
-    logging.info('class_last_select_dict:{}\n'.format(class_last_select_dict))
 
     # init method and model type
     if args.method == 'fedavg':
@@ -229,7 +196,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num,  "client_infos":client_infos
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedprox':
@@ -246,7 +213,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num,  "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'moon':
@@ -263,7 +230,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, 'last_select':class_last_select_dict, "client_infos":client_infos, "hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num,  "client_infos":client_infos, "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedbalance':
@@ -281,7 +248,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos,  "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedict':
@@ -300,7 +267,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos,  "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrs':
@@ -316,7 +283,7 @@ if __name__ == "__main__":
         server_dict = {'train_data': test_dl, 'test_data': test_dl,
                        'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
-                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict, "hypers":hypers
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos,  "hypers":hypers
                         } for i in range(args.thread_number)]
 
     elif args.method == 'fedrod':
