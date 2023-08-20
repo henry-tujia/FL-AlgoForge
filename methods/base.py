@@ -22,7 +22,6 @@ class Base_Client():
         self.before_val = False
         self.after_val = False
         self.distances = None
-        self.last_select_round_dict = client_dict['last_select']
         self.client_infos = client_dict["client_infos"]
         self.weight_test = None
 
