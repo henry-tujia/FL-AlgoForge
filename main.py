@@ -91,7 +91,10 @@ def add_args(parser):
                         help='Weight calculation method')
 
     parser.add_argument('--proxy', type=str, default="",
-                        help='Weight calculation method')
+                        help='Proxy for wandb')
+
+    parser.add_argument('--data_path', type=str, default="",
+                        help="""path of all dataset, formed as 'data_path'/cifar10 """)
 
     args = parser.parse_args()
 
@@ -166,8 +169,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args = add_args(parser)
 
-    root_path = "/mnt/data/th/FedTH/data"
-    args.datadir = os.path.join(root_path, "dataset", args.dataset)
+    args.datadir = os.path.join(args.data_path, args.dataset)
 
     if args.dataset == "cifar10":
         from data_preprocessing.cifar10.data_loader import (
@@ -183,8 +185,6 @@ if __name__ == "__main__":
         args.datadir, args.batch_size*4, dict_client_idexes, client_idx=None, train=False)
 
     mapping_dict = allocate_clients_to_threads(args)
-
-    class_last_select_dict = {k: 0 for k in range(args.client_number)}
 
     # init method and model type
     if args.method == 'fedavg':
