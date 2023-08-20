@@ -16,7 +16,6 @@ class Client(Base_Client):
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
         ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
-        self.hypers = client_dict["hypers"]
 
     def train(self):
         # train the local model
