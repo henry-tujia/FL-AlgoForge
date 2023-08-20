@@ -21,6 +21,7 @@ import methods.fedprox as fedprox
 import methods.fedrs as fedrs
 import methods.moon as moon
 import methods.fedict as fedict
+import methods.fedfv as fedfv
 # from torch.utils.tensorboard import SummaryWriter
 import wandb
 # from models.alexnet import alexnet as alexnet
@@ -302,6 +303,27 @@ if __name__ == "__main__":
         client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
                         'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos, 'last_select':class_last_select_dict
                         } for i in range(args.thread_number)]
+
+    elif args.method == 'fedfv':
+        Server = fedfv.Server
+        Client = fedfv.Client
+
+        Model = init_net()
+        model_paras = {
+            "num_classes": class_num
+        }
+
+        hypers = {
+            'tau': 1,
+            'alpha': 0.1
+        }
+
+        server_dict = {'train_data': test_dl, 'test_data': test_dl, "hypers": hypers,
+                       'model_type': Model, 'model_paras': model_paras, 'num_classes': class_num}
+        client_dict = [{'train_data': dict_client_idexes, 'test_data': dict_client_idexes, 'get_dataloader': get_client_dataloader, 'device': i % torch.cuda.device_count(),
+                        'client_map': mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':class_num, "client_infos":client_infos
+                        } for i in range(args.thread_number)]
+
     else:
         raise ValueError(
             'Invalid --method chosen! Please choose from availible methods.')
