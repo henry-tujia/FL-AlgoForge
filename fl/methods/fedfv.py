@@ -41,8 +41,10 @@ class Client(Base_Client):
 
         # 此处交换参数以及输出新字典
         # self.model.change_paras()
-        weights = {key: value for key,
-                   value in self.model.cpu().state_dict().items()}
+        weights = copy.deepcopy(self.model)
+        
+        # {key: value for key,
+        #            value in self.model.cpu().state_dict().items()}
         return weights, return_loss
 
     def train_once(self):
