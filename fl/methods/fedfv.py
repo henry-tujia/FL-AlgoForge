@@ -171,19 +171,19 @@ class Server(Base_Server):
                         order_grads[i] -= dot/g_locals_l2_norm[j]*g_locals[j]
         weights = torch.Tensor([1/len(order_grads)] *
                                len(order_grads)).float().to(self.device)
-        gt = weights@torch.stack(order_grads)
+        gt = weights@(torch.stack(order_grads).to(self.device))
 
         if self.round >= self.tau:
             for k in range(self.tau-1, -1, -1):
-                gcs = [value[1] for key, value in self.local_gradient_round.item if key ==
-                       self.round-k and gt @ value[1] < 0]
+                gcs = [value[1] for key, value in self.local_gradient_round.item() if key ==
+                       self.round-k and gt @ value[1].to(self.device) < 0]
                 if gcs:
                     gcs = torch.vstack(gcs)
                     g_con = torch.sum(gcs, dim=0)
                     dot = gt@g_con
                     if dot < 0:
                         gt -= dot/(torch.norm(g_con)**2)*g_con
-        gnorm = torch.norm(weights@torch.stack(g_locals))
+        gnorm = torch.norm(weights@torch.stack(g_locals).to(self.device))
         gt = gt/torch.norm(gt)*gnorm
 
         for i, p in enumerate(self.model.parameters()):
