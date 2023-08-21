@@ -139,7 +139,7 @@ class Server(Base_Server):
 
     def operations(self, client_info):
         client_info.sort(key=lambda tup: tup['client_index'])
-        client_sd = [c['weights'] for c in client_info]
+        client_sd = [c['weights'].to(torch.device("cpu")) for c in client_info]
         old_model = self.model.span_model_params_to_vec()
         g_locals = []
 
