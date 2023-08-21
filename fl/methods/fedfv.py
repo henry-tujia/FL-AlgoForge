@@ -186,6 +186,9 @@ class Server(Base_Server):
         gnorm = torch.norm(weights@torch.stack(g_locals).to(self.device))
         gt = gt/torch.norm(gt)*gnorm
 
+        self.model.to(self.device)
+        gt.to(self.device)
+
         for i, p in enumerate(self.model.parameters()):
             p.data -= gt[self.model.Loc_reshape_list[i]]
 
