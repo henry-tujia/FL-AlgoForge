@@ -151,7 +151,8 @@ class Server(Base_Server):
 
         order_grads = copy.deepcopy(g_locals)
         order = [_ for _ in range(len(order_grads))]
-        temp = sorted(list(zip([x['loss'] for x in client_info], order)))
+        temp = sorted(list(zip([x['l_local'] for x in client_info], order)), key=lambda x: x[0])
+        order = [x[1] for x in temp]
         keep_original = []
         if self.alpha > 0:
             keep_original = order[math.ceil((len(order)-1)*(1-self.alpha)):]
