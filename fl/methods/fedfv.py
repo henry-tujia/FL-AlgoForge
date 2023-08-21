@@ -175,7 +175,7 @@ class Server(Base_Server):
 
         if self.round >= self.tau:
             for k in range(self.tau-1, -1, -1):
-                gcs = [value[1] for key, value in self.local_gradient_round.item() if key ==
+                gcs = [value[1] for key, value in self.local_gradient_round.items() if key ==
                        self.round-k and gt @ value[1].to(self.device) < 0]
                 if gcs:
                     gcs = torch.vstack(gcs)
