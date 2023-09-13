@@ -1,3 +1,6 @@
+import sys
+sys.path.append("..")
+
 import fl
 import torch
 import torch.nn as nn

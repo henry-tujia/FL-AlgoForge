@@ -9,7 +9,7 @@ class Base_Client():
     def __init__(self, client_dict, args):
         self.train_data = client_dict['train_data']
         self.test_data = client_dict['test_data']
-        self.device = 'cuda:{}'.format(client_dict['device'])
+        self.device = client_dict['device']
         self.model_type = client_dict['model_type']
         self.num_classes = client_dict['num_classes']
         self.args = args
@@ -147,7 +147,7 @@ class Base_Server():
     def __init__(self, server_dict, args):
         self.train_data = server_dict['train_data']
         self.test_data = server_dict['test_data']
-        self.device = 'cuda:{}'.format(torch.cuda.device_count()-1)
+        self.device = server_dict['device']
         self.model_type = server_dict['model_type']
         self.num_classes = server_dict['num_classes']
         self.acc = 0.0
@@ -158,7 +158,7 @@ class Base_Server():
     def run(self, received_info):
         server_outputs = self.operations(received_info)
         acc = self.test()
-        self.log_info(received_info, acc)
+        # self.log_info(received_info, acc)
         self.round += 1
         if acc > self.acc:
             torch.save(self.model.state_dict(),
@@ -167,8 +167,8 @@ class Base_Server():
         return server_outputs, acc
 
     def start(self):
-        with open('{}/config.txt'.format(self.save_path), 'a+') as config:
-            config.write(json.dumps(vars(self.args)))
+        # with open('{}/config.txt'.format(self.save_path), 'a+') as config:
+        #     config.write(json.dumps(vars(self.args)))
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
 
     def log_info(self, client_info, acc):

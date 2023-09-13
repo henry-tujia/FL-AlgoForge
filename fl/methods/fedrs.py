@@ -59,7 +59,7 @@ class Client(Base_Client):
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
                 hs, _ = self.model(images)
-                ws = self.model.fc.weight
+                ws = self.model.model.fc.weight
 
                 logits = cidst * hs.mm(ws.transpose(0, 1))
                 loss = self.criterion(logits, labels)
