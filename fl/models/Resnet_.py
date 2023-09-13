@@ -1,10 +1,11 @@
 import sys
 sys.path.append("..")
-
-import fl
-import torch
-import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn as nn
+import torch
+import fl
+
+
 
 __all__ = ["resnet20", "resnet32", "resnet44",
            "resnet56", "resnet110", "resnet1202"]

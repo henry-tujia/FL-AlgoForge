@@ -2,36 +2,40 @@ import sys
 import pathlib
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
-from collections import defaultdict
-import random
-import shutil
-import time
-import torch
-import yaml
-from models.Resnet_ import Resnet32 as resnet32
-from models.Resnet_ import Resnet8 as resnet8
-import methods.moon as moon
-import methods.fedrs as fedrs
-import methods.fedprox as fedprox
-import methods.feddecorr as feddecorr
-import methods.fedict as fedict
-import methods.fedfv as fedfv
-import methods.fedbalance as fedbalance
-import methods.fedavg as fedavg
-from utils import custom_multiprocess, tools
-import logging
-from torch.multiprocessing import Queue, set_start_method
+
+from addict import Dict
 import os
-from addict import Dict 
+from torch.multiprocessing import Queue, set_start_method
+import logging
+from utils import custom_multiprocess, tools
+import methods.fedavg as fedavg
+import methods.fedbalance as fedbalance
+import methods.fedfv as fedfv
+import methods.fedict as fedict
+import methods.feddecorr as feddecorr
+import methods.fedprox as fedprox
+import methods.fedrs as fedrs
+import methods.moon as moon
+from models.Resnet_ import Resnet8 as resnet8
+from models.Resnet_ import Resnet32 as resnet32
+import yaml
+import torch
+import time
+import shutil
+import random
+from collections import defaultdict
+
 
 
 torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 def init_process(q, Client):
     tools.set_random_seed()
     global client
     ci = q.get()
     client = Client(ci[0], ci[1])
+
 
 def run_clients(received_info):
     try:
@@ -42,16 +46,16 @@ def run_clients(received_info):
 
 
 class Trainer():
-    def __init__(self,method,config,save_path) -> None:
+    def __init__(self, method, config, save_path) -> None:
         self.method = method
         self.config_path = config
         self.save_path = save_path
         self.settings = self.read_config()
         self.DEVICE = (
             torch.device(self.settings["DEVICE"])
-            if torch.cuda.is_available()    
+            if torch.cuda.is_available()
             else torch.device("cpu")
-            )
+        )
         tools.set_logger(save_path/("train.log"))
 
     def read_config(self):
@@ -62,7 +66,8 @@ class Trainer():
         with open(self.config_path.parent/(f"{self.method}.yaml"), "r", encoding="utf-8") as f:
             hypers = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
-        shutil.copy(self.config_path.parent/(f"{self.method}.yaml"), self.save_path)
+        shutil.copy(self.config_path.parent /
+                    (f"{self.method}.yaml"), self.save_path)
         data["hypers"] = hypers
         return data
 
@@ -70,15 +75,19 @@ class Trainer():
         mapping_dict = defaultdict(list)
         for round in range(self.settings["comm_round"]):
             if self.settings["client_sample"] < 1.0:
-                num_clients = int(self.settings["client_number"]*self.settings["client_sample"])
-                client_list = random.sample(range(self.settings["client_number"]), num_clients)
+                num_clients = int(
+                    self.settings["client_number"]*self.settings["client_sample"])
+                client_list = random.sample(
+                    range(self.settings["client_number"]), num_clients)
             else:
                 num_clients = self.settings["client_number"]
                 client_list = list(range(num_clients))
             if num_clients % self.settings["thread_number"] == 0 and num_clients > 0:
-                clients_per_thread = int(num_clients/self.settings["thread_number"])
+                clients_per_thread = int(
+                    num_clients/self.settings["thread_number"])
                 for c, t in enumerate(range(0, num_clients, clients_per_thread)):
-                    idxs = [client_list[x] for x in range(t, t+clients_per_thread)]
+                    idxs = [client_list[x]
+                            for x in range(t, t+clients_per_thread)]
                     mapping_dict[c].append(idxs)
             else:
                 raise ValueError(
@@ -91,7 +100,7 @@ class Trainer():
         elif self.settings["dataset"] == "cifar100":
             Model = resnet32
         return Model
-    
+
     def init_dataloaders(self):
         match self.settings["dataset"]:
             case "cifar10":
@@ -107,16 +116,16 @@ class Trainer():
         self.test_dl = get_client_dataloader(
             self.settings["datadir"], self.settings["batch_size"], self.dict_client_idexes, client_idx=None, train=False)
         self.get_client_dataloader = get_client_dataloader
-        
+
     def init_methods(self):
         Model = self.init_net()
         model_paras = {"num_classes": self.class_num}
         hypers = self.settings["hypers"]
-        self.server_dict = {'train_data': self.test_dl, 'test_data': self.test_dl, "save_path":self.save_path,
-                            'model_type': Model, 'model_paras': model_paras, 'num_classes': self.class_num,'device': self.DEVICE}
+        self.server_dict = {'train_data': self.test_dl, 'test_data': self.test_dl, "save_path": self.save_path,
+                            'model_type': Model, 'model_paras': model_paras, 'num_classes': self.class_num, 'device': self.DEVICE}
         self.client_dict = [{'train_data': self.dict_client_idexes, 'test_data': self.dict_client_idexes, 'get_dataloader': self.get_client_dataloader, 'device': self.DEVICE,
-                                'client_map': self.mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':self.class_num,  "client_infos":self.client_infos,"hypers":hypers
-                                } for i in range(self.settings["thread_number"])]
+                             'client_map': self.mapping_dict[i], 'model_type': Model, 'model_paras': model_paras, 'num_classes':self.class_num,  "client_infos":self.client_infos, "hypers":hypers
+                             } for i in range(self.settings["thread_number"])]
         match self.method:
             case 'fedavg':
                 self.Server = fedavg.Server
@@ -131,7 +140,7 @@ class Trainer():
             case 'moon':
                 self.Server = moon.Server
                 self.Client = moon.Client
-                model_paras["KD"] = True  
+                model_paras["KD"] = True
                 model_paras["projection"] = True
             case 'fedrs':
                 self.Server = fedrs.Server
@@ -146,7 +155,8 @@ class Trainer():
                 raise ValueError(
                     'Invalid --method chosen! Please choose from availible methods.')
         self.server_dict["model_paras"] = model_paras
-    def run_one_round(self,r):
+
+    def run_one_round(self, r):
         logging.info('************** Round: {} ***************'.format(r))
         round_start = time.time()
         client_outputs = self.pool.map(run_clients, self.server_outputs)
@@ -170,10 +180,10 @@ class Trainer():
 
         # Start server and get initial outputs
         self.pool = custom_multiprocess.DreamPool(self.settings["thread_number"], init_process,
-                            (client_info, self.Client))
-        
+                                                  (client_info, self.Client))
+
         self.server = self.Server(self.server_dict, Dict(self.settings))
-        
+
     def run(self):
         self.init_dataloaders()
         self.allocate_clients_to_threads()

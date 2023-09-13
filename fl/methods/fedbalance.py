@@ -16,9 +16,10 @@ from models.lenet import lenet
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model_global = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model_global = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
         self.hypers = client_dict["hypers"]
-        self.model_local = self.init_local_net().to(self.device)#
+        self.model_local = self.init_local_net().to(self.device)
         self.model = resnet_fedbalance(self.model_local, self.model_global)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(self.model.parameters(
@@ -27,16 +28,16 @@ class Client(Base_Client):
             x for x in self.model.state_dict().keys() if not 'local' in x]
 
     def init_local_net(self):
-        if self.hypers["model_type"]== "resnet20":
+        if self.hypers["model_type"] == "resnet20":
             return resnet20(self.num_classes)
-        elif self.hypers["model_type"]== "resnet8":
+        elif self.hypers["model_type"] == "resnet8":
             return resnet8(self.num_classes)
-        elif self.hypers["model_type"]== "alexnet":
+        elif self.hypers["model_type"] == "alexnet":
             return alexnet(self.num_classes)
-        elif self.hypers["model_type"]== "lenet":
+        elif self.hypers["model_type"] == "lenet":
             return lenet(self.num_classes)
         else:
-            raise Exception("Invalid Local Model! ",self.hypers["model_type"])
+            raise Exception("Invalid Local Model! ", self.hypers["model_type"])
 
     def load_client_state_dict(self, server_state_dict):
         paras_old = self.model.state_dict()
@@ -49,7 +50,7 @@ class Client(Base_Client):
         client_dis = self.client_cnts[idx]
 
         dist = client_dis / client_dis.sum()  # 个数的比例
-        cdist = dist#/dist.max()
+        cdist = dist  # /dist.max()
         cdist = cdist.reshape((1, -1))
         # cdist = torch.log(cdist)
 
@@ -69,7 +70,7 @@ class Client(Base_Client):
                 # logging.info(images.shape)
                 images, labels = images.to(self.device), labels.to(self.device)
                 self.model.zero_grad()
-                
+
                 probs = self.model(images, cidst)
                 loss = self.criterion(probs, labels)
                 loss.backward()
@@ -101,7 +102,7 @@ class Client(Base_Client):
             for batch_idx, (x, target) in enumerate(self.acc_dataloader):
                 x = x.to(self.device)
                 target = target.to(self.device)
-                
+
                 logits = self.model.model_global(x)
                 # loss = self.criterion(pred, target)
                 _, predicted = torch.max(logits, 1)
@@ -109,19 +110,21 @@ class Client(Base_Client):
                     preds = predicted.cpu()
                     labels = target.cpu()
                 else:
-                    preds = torch.concat((preds,predicted.cpu()),dim=0)
-                    labels = torch.concat((labels,target.cpu()),dim=0)
+                    preds = torch.concat((preds, predicted.cpu()), dim=0)
+                    labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() / (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (((preds == labels) * (labels == c)).float() /
+                        (max((labels == c).sum(), 1))).sum().cpu()
             if acc is None:
-                acc = temp_acc.reshape((1,-1))
+                acc = temp_acc.reshape((1, -1))
             else:
-                acc = torch.concat((acc,temp_acc.reshape((1,-1))),dim=0) 
-        weighted_acc = acc.reshape((1,-1)).mean()
+                acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
+        weighted_acc = acc.reshape((1, -1)).mean()
         logging.info(
-                "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
         return weighted_acc
-        
+
+
 class Server(Base_Server):
     def __init__(self, server_dict, args):
         super().__init__(server_dict, args)

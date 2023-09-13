@@ -42,7 +42,7 @@ class Client(Base_Client):
         # 此处交换参数以及输出新字典
         # self.model.change_paras()
         weights = copy.deepcopy(self.model)
-        
+
         # {key: value for key,
         #            value in self.model.cpu().state_dict().items()}
         return weights, return_loss
@@ -151,7 +151,8 @@ class Server(Base_Server):
 
         order_grads = copy.deepcopy(g_locals)
         order = [_ for _ in range(len(order_grads))]
-        temp = sorted(list(zip([x['l_local'] for x in client_info], order)), key=lambda x: x[0])
+        temp = sorted(
+            list(zip([x['l_local'] for x in client_info], order)), key=lambda x: x[0])
         order = [x[1] for x in temp]
         keep_original = []
         if self.alpha > 0:
