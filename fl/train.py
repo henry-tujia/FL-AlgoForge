@@ -162,7 +162,7 @@ class Trainer():
         client_outputs = self.pool.map(run_clients, self.server_outputs)
         client_outputs = [c for sublist in client_outputs for c in sublist]
         # res = np.array([x['results'] for x in client_outputs])  # .sum()
-        server_outputs, acc = self.server.run(client_outputs)
+        self.server_outputs, acc = self.server.run(client_outputs)
         # logging.info(f"Acc: {acc}")
         # wandb.log({"local_test_acc": res}, step=r)
         # wandb.log({'global_test_acc': acc}, step=r)
