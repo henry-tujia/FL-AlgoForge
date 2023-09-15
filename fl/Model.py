@@ -2,8 +2,6 @@
 import torch
 import copy
 from torch.autograd import Variable
-
-
 class Model(torch.nn.Module):
     def __init__(self, *args, **kwargs):
         super(Model, self).__init__()
@@ -11,22 +9,17 @@ class Model(torch.nn.Module):
         self.input_require_shape = None
         self.target_require_shape = None
         self.Loc_reshape_list = None
-
     def generate_net(self, *args, **kwargs):
         raise NotImplementedError
-
     def forward(self, x):
         raise NotImplementedError
-
     def create_Loc_reshape_list(self):
         currentIdx = 0
         self.Loc_reshape_list = []
         for i, p in enumerate(self.parameters()):
             flat = p.data.clone().flatten()
-            self.Loc_reshape_list.append(torch.arange(
-                currentIdx, currentIdx + len(flat), 1).reshape(p.data.shape))
+            self.Loc_reshape_list.append(torch.arange(currentIdx, currentIdx + len(flat), 1).reshape(p.data.shape))  
             currentIdx += len(flat)
-
     def __add__(self, other):
         if isinstance(other, int) and other == 0:
             return self
@@ -39,7 +32,6 @@ class Model(torch.nn.Module):
         for layer in res_model_params.keys():
             res_model_params[layer] += other_params[layer]
         return res_model
-
     def __sub__(self, other):
         if isinstance(other, int) and other == 0:
             return self
@@ -52,7 +44,6 @@ class Model(torch.nn.Module):
         for layer in res_model_params.keys():
             res_model_params[layer] -= other_params[layer]
         return res_model
-
     def __mul__(self, other):
         res_model = copy.deepcopy(self)
         res_model.zero_grad()
@@ -65,13 +56,10 @@ class Model(torch.nn.Module):
             for k in res_model.state_dict().keys():
                 res_model_params[k] *= other_params[k]
         return res_model
-
     def __rmul__(self, other):
         return self * other
-
     def __pow__(self, power):
         return self._model_norm(power)
-
     def dot(self, other):
         res = 0.0
         md1 = self.state_dict()
@@ -81,21 +69,17 @@ class Model(torch.nn.Module):
                 continue
             res += torch.sum(md1[layer] * md2[layer])
         return res
-
     def L2_norm_square(self):
         model_params = self.state_dict()
         res = 0.0
         for k in model_params.keys():
-            if model_params[k] is None:
-                continue
+            if model_params[k] is None: continue
             if model_params[k].dtype not in [torch.float, torch.float32, torch.float64]:
                 continue
             res += torch.sum(torch.pow(model_params[k], 2))
         return res
-
     def norm(self, p=2):
         return self**p
-
     def _model_norm(self, p):
         res = 0.0
         md = self.state_dict()
@@ -106,7 +90,6 @@ class Model(torch.nn.Module):
                 continue
             res += torch.sum(torch.pow(md[layer], p))
         return torch.pow(res, 1.0 / p)
-
     @staticmethod
     def model_sum(model_list):
         res_model = copy.deepcopy(model_list[0])
@@ -116,7 +99,6 @@ class Model(torch.nn.Module):
             for k in model_params.keys():
                 res_model_params[k] += model_params[k]
         return res_model
-
     @staticmethod
     def model_average(ms, weights=None):
         if weights is None:
@@ -134,7 +116,6 @@ class Model(torch.nn.Module):
                     averaged_params[k] += local_model_params[k] * weights[i]
         res.load_state_dict(averaged_params)
         return res
-
     def span_model_grad_to_vec(self):
         grad_vec = []
         for p in self.parameters():
@@ -143,7 +124,6 @@ class Model(torch.nn.Module):
                 grad_vec.append(Variable(flat, requires_grad=False))
         grad_vec = torch.cat(grad_vec)
         return grad_vec
-
     def span_model_params_to_vec(self):
         param_vec = []
         model_params = self.state_dict()

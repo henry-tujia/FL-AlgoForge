@@ -1,9 +1,11 @@
 import torch
 import torch.nn.functional as F
 
-import logging
+# import logging
 from methods.base import Base_Client, Base_Server
-from models.resnet_balance import resnet_fedbalance_server_experimental as resnet_fedbalance_server
+from models.resnet_balance import (
+    resnet_fedbalance_server_experimental as resnet_fedbalance_server,
+)
 from torch.multiprocessing import current_process
 import numpy as np
 import copy
@@ -13,17 +15,26 @@ class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
         client_dict["model_paras"].update({"KD": True})
-        self.model = self.model_type(
-            **client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.predictor = copy.deepcopy(self.model.fc)
 
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 
-        self.optimizer = torch.optim.SGD(self.model.parameters(
-        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.optimizer = torch.optim.SGD(
+            self.model.parameters(),
+            lr=self.args.lr,
+            momentum=0.9,
+            weight_decay=self.args.wd,
+            nesterov=True,
+        )
 
-        self.optimizer_prd = torch.optim.SGD(self.predictor.parameters(
-        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.optimizer_prd = torch.optim.SGD(
+            self.predictor.parameters(),
+            lr=self.args.lr,
+            momentum=0.9,
+            weight_decay=self.args.wd,
+            nesterov=True,
+        )
 
         # self.client_infos = client_dict["client_infos"]
 
@@ -36,14 +47,12 @@ class Client(Base_Client):
         # print(paras_new.keys())
 
         for key in self.upload_keys:
-
             paras_old[key] = paras_new[key]
             # print(key)
 
         self.model.load_state_dict(paras_old)
 
     def train(self):
-
         cdist = self.get_cdist(self.client_index)
         # train the local model
         self.model.to(self.device)
@@ -64,8 +73,7 @@ class Client(Base_Client):
                 feature, log_probs = self.model(images)
                 loss_bsm = self.balanced_softmax_loss(labels, log_probs, cdist)
                 log_probs_pred = self.predictor(feature.detach())
-                loss = self.criterion(
-                    log_probs_pred+log_probs.detach(), labels)
+                loss = self.criterion(log_probs_pred + log_probs.detach(), labels)
 
                 loss_bsm.backward()
                 self.optimizer.step()
@@ -78,15 +86,19 @@ class Client(Base_Client):
             # self.model.change_paras()
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(
-                    self.client_index, epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
+                self.loggers[self.client_idx].info(
+                    "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
+                        epoch,
+                        sum(epoch_loss) / len(epoch_loss),
+                        current_process()._identity[0],
+                        self.client_map[self.round],
+                    )
+                )
 
-        weights = {key: value for key,
-                   value in self.model.cpu().state_dict().items()}
+        weights = {key: value for key, value in self.model.cpu().state_dict().items()}
         return weights
 
     def test(self):
-
         self.model.to(self.device)
         self.model.eval()
 
@@ -105,7 +117,7 @@ class Client(Base_Client):
                 log_probs_pred = self.predictor(feature)
 
                 # loss = self.criterion(pred, target)
-                _, predicted = torch.max(log_probs_pred+log_probs, 1)
+                _, predicted = torch.max(log_probs_pred + log_probs, 1)
                 if preds is None:
                     preds = predicted.cpu()
                     labels = target.cpu()
@@ -113,15 +125,24 @@ class Client(Base_Client):
                     preds = torch.concat((preds, predicted.cpu()), dim=0)
                     labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() /
-                        (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (
+                (
+                    ((preds == labels) * (labels == c)).float()
+                    / (max((labels == c).sum(), 1))
+                )
+                .sum()
+                .cpu()
+            )
             if acc is None:
                 acc = temp_acc.reshape((1, -1))
             else:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         weighted_acc = acc.reshape((1, -1)).mean()
-        logging.info(
-            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+        self.loggers[self.client_idx].info(
+            "************* Client {} Acc = {:.2f} **************".format(
+                self.client_index, weighted_acc.item()
+            )
+        )
         return weighted_acc
 
     # https://github.com/jiawei-ren/BalancedMetaSoftmax-Classification
@@ -138,8 +159,7 @@ class Client(Base_Client):
         spc = sample_per_class.type_as(logits)
         spc = spc.unsqueeze(0).expand(logits.shape[0], -1)
         logits = logits + spc.log()
-        loss = F.cross_entropy(
-            input=logits, target=labels, reduction=reduction)
+        loss = F.cross_entropy(input=logits, target=labels, reduction=reduction)
         return loss
 
 

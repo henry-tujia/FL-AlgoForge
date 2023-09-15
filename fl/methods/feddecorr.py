@@ -1,18 +1,13 @@
-'''
-Code credit to https://github.com/QinbinLi/MOON
-for thier implementation of FedProx.
-'''
-
 import torch
 import torch.nn as nn
-import logging
+
+# import logging
 from methods.base import Base_Client, Base_Server
 import copy
 from torch.multiprocessing import current_process
 
 
 class FedDecorrLoss(nn.Module):
-
     def __init__(self):
         super(FedDecorrLoss, self).__init__()
         self.eps = 1e-8
@@ -28,6 +23,7 @@ class FedDecorrLoss(nn.Module):
         if N == 1:
             return 0.0
 
+        # z标准化
         x = x - x.mean(dim=0, keepdim=True)
         x = x / torch.sqrt(self.eps + x.var(dim=0, keepdim=True))
 
@@ -42,18 +38,21 @@ class FedDecorrLoss(nn.Module):
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model = self.model_type(
-            **client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
-        self.optimizer = torch.optim.SGD(self.model.parameters(
-        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.optimizer = torch.optim.SGD(
+            self.model.parameters(),
+            lr=self.args.lr,
+            momentum=0.9,
+            weight_decay=self.args.wd,
+            nesterov=True,
+        )
         self.hypers = client_dict["hypers"]
         self.extra_loss = FedDecorrLoss()
 
     def train(self):
         # train the local model
         self.model.to(self.device)
-        global_weight_collector = copy.deepcopy(list(self.model.parameters()))
         self.model.train()
         epoch_loss = []
         for epoch in range(self.args.epochs):
@@ -67,15 +66,21 @@ class Client(Base_Client):
                 loss = self.criterion(log_probs, labels)
 
                 extra_loss = self.extra_loss(feature)
-                loss = loss + extra_loss*self.hypers["mu"]
+                loss = loss + extra_loss * self.hypers["mu"]
 
                 loss.backward()
                 self.optimizer.step()
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(self.client_index,
-                                                                                                             epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
+                self.loggers[self.client_idx].info(
+                    "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
+                        epoch,
+                        sum(epoch_loss) / len(epoch_loss),
+                        current_process()._identity[0],
+                        self.client_map[self.round],
+                    )
+                )
         weights = self.model.cpu().state_dict()
         return weights
 

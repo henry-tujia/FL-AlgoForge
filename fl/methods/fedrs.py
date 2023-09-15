@@ -1,5 +1,6 @@
 import torch
-import logging
+
+# import logging
 from methods.base import Base_Client, Base_Server
 from torch.multiprocessing import current_process
 import numpy as np
@@ -9,11 +10,15 @@ class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
         client_dict["model_paras"].update({"KD": True})
-        self.model = self.model_type(
-            **client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
-        self.optimizer = torch.optim.SGD(self.model.parameters(
-        ), lr=self.args.lr, momentum=0.9, weight_decay=self.args.wd, nesterov=True)
+        self.optimizer = torch.optim.SGD(
+            self.model.parameters(),
+            lr=self.args.lr,
+            momentum=0.9,
+            weight_decay=self.args.wd,
+            nesterov=True,
+        )
         self.hypers = client_dict["hypers"]
 
         # self.client_infos = client_dict["client_infos"]
@@ -46,7 +51,6 @@ class Client(Base_Client):
         return cdist.to(self.device)
 
     def train(self):
-
         cidst = self.get_cdist_inner(self.client_index)
         # train the local model
         self.model.to(self.device)
@@ -69,17 +73,21 @@ class Client(Base_Client):
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                logging.info('(client {}. Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}'.format(
-                    self.client_index, epoch, sum(epoch_loss) / len(epoch_loss), current_process()._identity[0], self.client_map[self.round]))
+                self.loggers[self.client_idx].info(
+                    "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
+                        epoch,
+                        sum(epoch_loss) / len(epoch_loss),
+                        current_process()._identity[0],
+                        self.client_map[self.round],
+                    )
+                )
 
         # 此处交换参数以及输出新字典
         # self.model.change_paras()
-        weights = {key: value for key,
-                   value in self.model.cpu().state_dict().items()}
+        weights = {key: value for key, value in self.model.cpu().state_dict().items()}
         return weights
 
     def test(self):
-
         cidst = self.get_cdist_inner(self.client_index)
         self.model.to(self.device)
         self.model.eval()
@@ -105,15 +113,24 @@ class Client(Base_Client):
                     preds = torch.concat((preds, predicted.cpu()), dim=0)
                     labels = torch.concat((labels, target.cpu()), dim=0)
         for c in range(self.num_classes):
-            temp_acc = (((preds == labels) * (labels == c)).float() /
-                        (max((labels == c).sum(), 1))).sum().cpu()
+            temp_acc = (
+                (
+                    ((preds == labels) * (labels == c)).float()
+                    / (max((labels == c).sum(), 1))
+                )
+                .sum()
+                .cpu()
+            )
             if acc is None:
                 acc = temp_acc.reshape((1, -1))
             else:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         weighted_acc = acc.reshape((1, -1)).mean()
-        logging.info(
-            "************* Client {} Acc = {:.2f} **************".format(self.client_index, weighted_acc.item()))
+        self.loggers[self.client_idx].info(
+            "************* Client {} Acc = {:.2f} **************".format(
+                self.client_index, weighted_acc.item()
+            )
+        )
         return weighted_acc
 
 

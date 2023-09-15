@@ -9,7 +9,7 @@ if __name__ == "__main__":
     dt = datetime.datetime.now()
     SAVE_PATH = FILE_PATH / "save" / f"""{dt.isoformat()}"""
 
-    pathlib.Path.mkdir(SAVE_PATH, exist_ok=True, parents=True)
+    pathlib.Path.mkdir(SAVE_PATH,exist_ok=True,parents=True)
 
     parser = argparse.ArgumentParser(description="get yaml.")
     parser.add_argument(
@@ -27,5 +27,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    trainer = Trainer(args.method, pathlib.Path(args.config), SAVE_PATH)
+    trainer = Trainer(args.method,pathlib.Path(args.config),SAVE_PATH)
     trainer.run()
