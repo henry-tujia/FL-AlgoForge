@@ -8,7 +8,7 @@ partition_alpha: 0.1
 
 # For Local Training
 dataset: "cifar10"
-datadir: "/cpfs/user/haotan2/FL/Mutil-FL-Training-main/dataset/cifar10"
+datadir: "/root/autodl-fs/dataset/cifar10"
 batch_size: 64
 lr : 0.01
 wd : 0.0001

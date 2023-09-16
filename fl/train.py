@@ -1,29 +1,29 @@
-import sys
-import pathlib
-
-sys.path.append(str(pathlib.Path(__file__).parent.parent))
-from collections import defaultdict
-import random
-import shutil
-import time
-import torch
-import yaml
+from utils import custom_multiprocess, tools
+from torch.multiprocessing import Queue, set_start_method
 from models.Resnet_ import Resnet32 as resnet32
 from models.Resnet_ import Resnet8 as resnet8
+from addict import Dict
+import yaml
+import torch
 import methods.moon as moon
+import methods.fedunknown as fedunknown
 import methods.fedrs as fedrs
 import methods.fedprox as fedprox
-import methods.feddecorr as feddecorr
 import methods.fedict as fedict
 import methods.fedfv as fedfv
+import methods.feddecorr as feddecorr
 import methods.fedbalance as fedbalance
 import methods.fedavg as fedavg
-import methods.fedunknown as fedunknown
-from utils import custom_multiprocess, tools
+from collections import defaultdict
+import time
 import logging
-from torch.multiprocessing import Queue, set_start_method
 import os
-from addict import Dict
+import pathlib
+import random
+import shutil
+import sys
+
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -49,16 +49,15 @@ class Trainer:
         self.method = method
         self.config_path = config
         self.save_path = save_path
-        self.settings = self.read_config()
+        self.settings = self.read_config_and_create_logger()
         self.settings["save_path"] = save_path
         self.DEVICE = (
             torch.device(self.settings["DEVICE"])
             if torch.cuda.is_available()
             else torch.device("cpu")
         )
-        self.logger_method = tools.set_logger
 
-    def read_config(self):
+    def read_config_and_create_logger(self):
         shutil.copy(self.config_path, self.save_path)
         with open(self.config_path, "r", encoding="utf-8") as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -68,8 +67,16 @@ class Trainer:
         ) as f:
             hypers = yaml.load(f, Loader=yaml.FullLoader)
         f.close()
-        shutil.copy(self.config_path.parent / (f"{self.method}.yaml"), self.save_path)
+        shutil.copy(self.config_path.parent /
+                    (f"{self.method}.yaml"), self.save_path)
         data["hypers"] = hypers
+
+        self.client_loggers = [tools.set_logger(
+            self.save_path/"clients", str(x), "client") for x in range(self.settings["client_number"])]
+
+        self.server_logger = tools.set_logger(
+            self.save_path, "server", "server")
+
         return data
 
     def allocate_clients_to_threads(self):
@@ -77,7 +84,8 @@ class Trainer:
         for round in range(self.settings["comm_round"]):
             if self.settings["client_sample"] < 1.0:
                 num_clients = int(
-                    self.settings["client_number"] * self.settings["client_sample"]
+                    self.settings["client_number"] *
+                    self.settings["client_sample"]
                 )
                 client_list = random.sample(
                     range(self.settings["client_number"]), num_clients
@@ -86,9 +94,11 @@ class Trainer:
                 num_clients = self.settings["client_number"]
                 client_list = list(range(num_clients))
             if num_clients % self.settings["thread_number"] == 0 and num_clients > 0:
-                clients_per_thread = int(num_clients / self.settings["thread_number"])
+                clients_per_thread = int(
+                    num_clients / self.settings["thread_number"])
                 for c, t in enumerate(range(0, num_clients, clients_per_thread)):
-                    idxs = [client_list[x] for x in range(t, t + clients_per_thread)]
+                    idxs = [client_list[x]
+                            for x in range(t, t + clients_per_thread)]
                     mapping_dict[c].append(idxs)
             else:
                 raise ValueError(
@@ -115,14 +125,10 @@ class Trainer:
         match self.settings["dataset"]:
             case "cifar10":
                 from data_preprocessing.cifar10.data_loader import (
-                    get_client_dataloader,
-                    get_client_idxes_dict,
-                )
+                    get_client_dataloader, get_client_idxes_dict)
             case "cifar100":
                 from data_preprocessing.cifar100.data_loader import (
-                    get_client_dataloader,
-                    get_client_idxes_dict,
-                )
+                    get_client_dataloader, get_client_idxes_dict)
             case _:
                 raise ValueError("Unrecognized Dataset!")
         (
@@ -157,6 +163,7 @@ class Trainer:
             "model_paras": model_paras,
             "num_classes": self.class_num,
             "device": self.DEVICE,
+            "logger": self.server_logger
         }
         self.client_dict = [
             {
@@ -171,6 +178,7 @@ class Trainer:
                 "num_classes": self.class_num,
                 "client_infos": self.client_infos,
                 "hypers": hypers,
+                "loggers":self.client_loggers
             }
             for i in range(self.settings["thread_number"])
         ]
@@ -234,7 +242,8 @@ class Trainer:
 
         # Start server and get initial outputs
         self.pool = custom_multiprocess.DreamPool(
-            self.settings["thread_number"], init_process, (client_info, self.Client)
+            self.settings["thread_number"], init_process, (
+                client_info, self.Client)
         )
 
         self.server = self.Server(self.server_dict, Dict(self.settings))

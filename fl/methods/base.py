@@ -1,7 +1,5 @@
 import numpy as np
 import torch
-import logging
-import json
 from torch.multiprocessing import current_process
 
 
@@ -24,7 +22,7 @@ class Base_Client:
         self.distances = None
         self.client_infos = client_dict["client_infos"]
         self.weight_test = None
-        self.loggers = [client_dict["logger_method"](self.args.save_path, str(x), mode="client") for x in range(self.args.client_number)]
+        self.loggers = client_dict["loggers"]
 
     # def get_last_round(self, client_idx):
     #     return self.last_select_round_dict[client_idx]
@@ -58,6 +56,7 @@ class Base_Client:
     def run(self, received_info):
         client_results = []
         for client_idx in self.client_map[self.round]:
+            self.logger = self.loggers[client_idx]
             # self.logger = self.logger_method(
             #     self.args.save_path, str(client_idx), mode="client"
             # )
@@ -79,13 +78,14 @@ class Base_Client:
             self.client_cnts = self.init_client_infos()
             num_samples = len(self.train_dataloader) * self.args.batch_size
 
-            self.loggers[client_idx].info(
+            self.logger.info(
                 f"***********************{self.round}***********************"
             )
 
             weights = self.train()
             if self.args.local_valid:  # and self.round == last_round:
-                self.weight_test = self.get_cdist_test(client_idx).reshape((1, -1))
+                self.weight_test = self.get_cdist_test(
+                    client_idx).reshape((1, -1))
                 self.acc_dataloader = self.test_dataloader
                 after_test_acc = self.test()
             else:
@@ -127,7 +127,7 @@ class Base_Client:
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -175,7 +175,7 @@ class Base_Client:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         # print(acc.device,self.weight_test.device)
         weighted_acc = acc.reshape((1, -1)).mean()
-        self.loggers[self.client_idx](
+        self.logger.info(
             "************* Client {} Acc = {:.2f} **************".format(
                 self.client_index, weighted_acc.item()
             )
@@ -193,15 +193,17 @@ class Base_Server:
         self.acc = 0.0
         self.round = 0
         self.args = args
-        self.logger_method = server_dict["logger_method"]
+        self.logger = server_dict["logger"]
 
     def run(self, received_info):
         server_outputs = self.operations(received_info)
         acc = self.test()
-        self.logger = self.logger_method(self.args.save_path, "server", "server")
+        # self.logger = self.logger_method(
+        #     self.args.save_path, "server", "server")
         self.log_info(received_info, acc)
         self.round += 1
         if acc > self.acc:
+            self.logger.info("Save Best Model...")
             torch.save(
                 self.model.state_dict(), "{}/{}.pt".format(self.save_path, "server")
             )
@@ -214,7 +216,8 @@ class Base_Server:
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
 
     def log_info(self, client_info, acc):
-        client_acc = sum([c["results"] for c in client_info]) / len(client_info)
+        client_acc = sum([c["results"]
+                         for c in client_info]) / len(client_info)
         out_str = "Test/AccTop1: {}, Client_Train/AccTop1: {}, round: {}\n".format(
             acc, client_acc, self.round
         )
@@ -234,12 +237,13 @@ class Base_Server:
         for key in ssd:
             ssd[key] = sum([sd[key] * cw[i] for i, sd in enumerate(client_sd)])
         self.model.load_state_dict(ssd)
-        if self.args.save_client and self.round == self.args.comm_round - 1:
-            for client in client_info:
-                torch.save(
-                    client["weights"],
-                    "{}/client_{}.pt".format(self.save_path, client["client_index"]),
-                )
+        # if self.args.save_client and self.round == self.args.comm_round - 1:
+        #     for client in client_info:
+        #         torch.save(
+        #             client["weights"],
+        #             "{}/client_{}.pt".format(self.save_path,
+        #                                      client["client_index"]),
+        #         )
         return [self.model.cpu().state_dict() for x in range(self.args.thread_number)]
 
     def test_inner(self, data):
@@ -268,5 +272,6 @@ class Base_Server:
 
     def test(self):
         acc, _ = self.test_inner(self.test_data)
-        self.logger.info("************* Server Acc = {:.2f} **************".format(acc))
+        self.logger.info(
+            "************* Server Acc = {:.2f} **************".format(acc))
         return acc
