@@ -2,10 +2,6 @@ import argparse
 from train import Trainer
 import pathlib
 import datetime
-# import os
-
-# os.environ['http_proxy'] = "http://127.0.0.1:7890"
-# os.environ['https_proxy'] = "http://127.0.0.1:7890"
 
 if __name__ == "__main__":
     FILE_PATH = pathlib.Path(__file__).absolute().parent.parent

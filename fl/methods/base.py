@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch.multiprocessing import current_process
-
+import pandas
 
 class Base_Client:
     def __init__(self, client_dict, args):
@@ -22,8 +22,7 @@ class Base_Client:
         self.distances = None
         self.client_infos = client_dict["client_infos"]
         self.weight_test = None
-        self.loggers = client_dict["loggers"]
-
+        self.logger_method = client_dict["logger_method"]
     # def get_last_round(self, client_idx):
     #     return self.last_select_round_dict[client_idx]
 
@@ -56,10 +55,9 @@ class Base_Client:
     def run(self, received_info):
         client_results = []
         for client_idx in self.client_map[self.round]:
-            self.logger = self.loggers[client_idx]
-            # self.logger = self.logger_method(
-            #     self.args.save_path, str(client_idx), mode="client"
-            # )
+            self.logger = self.logger_method(
+                self.args.save_path/"clients"/"logs", str(client_idx), mode="client"
+            )
             self.load_client_state_dict(received_info)
             self.train_dataloader, self.test_dataloader = self.get_dataloader(
                 self.args.datadir,
@@ -109,6 +107,7 @@ class Base_Client:
         return client_results
 
     def train(self):
+        #list_for_df = []
         # train the local model
         self.model.to(self.device)
         self.model.train()
@@ -135,7 +134,11 @@ class Base_Client:
                         self.client_map[self.round],
                     )
                 )
+            ##list_for_df.append(
+                #[self.round, epoch, sum(epoch_loss) / len(epoch_loss)])
         weights = self.model.cpu().state_dict()
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients"/#"dfs"/f"{self.client_index}.xlsx")
         return weights
 
     def test(self):
@@ -193,9 +196,12 @@ class Base_Server:
         self.acc = 0.0
         self.round = 0
         self.args = args
-        self.logger = server_dict["logger"]
+        self.logger_method = server_dict["logger_method"]
 
     def run(self, received_info):
+        self.logger = self.logger_method(
+            self.args.save_path, "server", mode="server"
+        )
         server_outputs = self.operations(received_info)
         acc = self.test()
         # self.logger = self.logger_method(
@@ -205,7 +211,7 @@ class Base_Server:
         if acc > self.acc:
             self.logger.info("Save Best Model...")
             torch.save(
-                self.model.state_dict(), "{}/{}.pt".format(self.save_path, "server")
+                self.model.state_dict(), "{}/{}.pt".format(self.args.save_path, "server")
             )
             self.acc = acc
         return server_outputs, acc

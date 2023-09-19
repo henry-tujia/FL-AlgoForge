@@ -18,8 +18,10 @@ def set_logger(log_path, loggername, mode="server"):
         log_path: (string) where to log
     """
     pathlib.Path.mkdir(log_path, exist_ok=True, parents=True)
+    
     logger = logging.getLogger(loggername)
     logger.setLevel(logging.INFO)
+    logger.propagate = False
     log_path = log_path/(loggername+".log")
     if not logger.handlers:
         # Logging to a file
@@ -28,11 +30,13 @@ def set_logger(log_path, loggername, mode="server"):
             '%(asctime)s:%(levelname)s: %(message)s'))
         logger.addHandler(file_handler)
 
-        if mode == "server":
-            # Logging to console
-            stream_handler = logging.StreamHandler()
-            stream_handler.setFormatter(logging.Formatter('%(message)s'))
-            logger.addHandler(stream_handler)
+        # if mode == "client":
+        #     pathlib.Path.mkdir(log_path.parent.parent/"dfs", exist_ok=True, parents=True)
+        #     # Logging to console
+        #     stream_handler = logging.StreamHandler()
+        #     stream_handler.setFormatter(logging.Formatter('%(message)s'))
+        #     logger.addHandler(stream_handler)
+    return logger
 
 
 def set_random_seed(seed=1):

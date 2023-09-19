@@ -1,3 +1,7 @@
+import sys
+import pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
+
 from utils import custom_multiprocess, tools
 from torch.multiprocessing import Queue, set_start_method
 from models.Resnet_ import Resnet32 as resnet32
@@ -17,13 +21,11 @@ import methods.fedavg as fedavg
 from collections import defaultdict
 import time
 import logging
+import tqdm
 import os
-import pathlib
 import random
 import shutil
-import sys
 
-sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -56,6 +58,7 @@ class Trainer:
             if torch.cuda.is_available()
             else torch.device("cpu")
         )
+        self.logger_method = tools.set_logger
 
     def read_config_and_create_logger(self):
         shutil.copy(self.config_path, self.save_path)
@@ -70,12 +73,6 @@ class Trainer:
         shutil.copy(self.config_path.parent /
                     (f"{self.method}.yaml"), self.save_path)
         data["hypers"] = hypers
-
-        self.client_loggers = [tools.set_logger(
-            self.save_path/"clients", str(x), "client") for x in range(self.settings["client_number"])]
-
-        self.server_logger = tools.set_logger(
-            self.save_path, "server", "server")
 
         return data
 
@@ -158,12 +155,11 @@ class Trainer:
             "train_data": self.test_dl,
             "test_data": self.test_dl,
             "save_path": self.save_path,
-            "logger_method": self.logger_method,
             "model_type": Model,
             "model_paras": model_paras,
             "num_classes": self.class_num,
             "device": self.DEVICE,
-            "logger": self.server_logger
+            "logger_method": self.logger_method
         }
         self.client_dict = [
             {
@@ -171,14 +167,13 @@ class Trainer:
                 "test_data": self.dict_client_idexes,
                 "get_dataloader": self.get_client_dataloader,
                 "device": self.DEVICE,
-                "logger_method": self.logger_method,
                 "client_map": self.mapping_dict[i],
                 "model_type": Model,
                 "model_paras": model_paras,
                 "num_classes": self.class_num,
                 "client_infos": self.client_infos,
                 "hypers": hypers,
-                "loggers":self.client_loggers
+                "logger_method": self.logger_method
             }
             for i in range(self.settings["thread_number"])
         ]
@@ -230,6 +225,7 @@ class Trainer:
         # wandb.log({'global_test_acc': acc}, step=r)
         # round_end = time.time()
         # logging.info("Round {} Time: {}s".format(r, round_end - round_start))
+        return acc
 
     def mutilprocess_before_run(self):
         try:
@@ -256,7 +252,12 @@ class Trainer:
 
         self.server_outputs = self.server.start()
         time.sleep(15 * (self.settings["client_number"] / 100))
-        for r in range(self.settings["comm_round"]):
-            self.run_one_round(r)
+        with tqdm.tqdm(range(self.settings["comm_round"])) as t:
+            for r in range(self.settings["comm_round"]):
+                acc = self.run_one_round(r)
+                t.set_postfix({"Acc": acc})
+                t.set_description(
+                    f"""Round: {r}/{self.settings["client_number"]}""")
+                t.update(1)
         self.pool.close()
         self.pool.join()

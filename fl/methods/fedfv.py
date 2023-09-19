@@ -2,7 +2,7 @@ import copy
 
 # import logging
 import math
-
+import pandas
 import torch
 from methods.base import Base_Client, Base_Server
 from torch.autograd import Variable
@@ -12,7 +12,8 @@ from torch.multiprocessing import current_process
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(
             self.model.parameters(),
@@ -23,6 +24,7 @@ class Client(Base_Client):
         )
 
     def train(self):
+        #list_for_df = []
         # train the local model
         self.model.to(self.device)
         self.model.train()
@@ -41,7 +43,7 @@ class Client(Base_Client):
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -49,11 +51,15 @@ class Client(Base_Client):
                         self.client_map[self.round],
                     )
                 )
+                #list_for_df.append(
+                    #[self.round, epoch, sum(epoch_loss) / len(epoch_loss)])
 
         # 此处交换参数以及输出新字典
         # self.model.change_paras()
         weights = copy.deepcopy(self.model)
-
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients" /
+                         #"dfs"/f"{self.client_index}.xlsx")
         # {key: value for key,
         #            value in self.model.cpu().state_dict().items()}
         return weights, return_loss
@@ -95,7 +101,8 @@ class Client(Base_Client):
 
             weights, l_loacl = self.train()
             if self.args.local_valid:  # and self.round == last_round:
-                self.weight_test = self.get_cdist_test(client_idx).reshape((1, -1))
+                self.weight_test = self.get_cdist_test(
+                    client_idx).reshape((1, -1))
                 self.acc_dataloader = self.test_dataloader
                 after_test_acc = self.test()
             else:
@@ -157,7 +164,7 @@ class Client(Base_Client):
             else:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         weighted_acc = acc.reshape((1, -1)).mean()
-        self.loggers[self.client_idx].info(
+        self.logger.info(
             "************* Client {} Acc = {:.2f} **************".format(
                 self.client_index, weighted_acc.item()
             )
@@ -183,7 +190,8 @@ class Server(Base_Server):
         for model_para in client_sd:
             g_locals.append(old_model - model_para.span_model_params_to_vec())
         for g_l, info in zip(g_locals, client_info):
-            self.local_gradient_round.update({info["client_index"]: [self.round, g_l]})
+            self.local_gradient_round.update(
+                {info["client_index"]: [self.round, g_l]})
 
         order_grads = copy.deepcopy(g_locals)
         order = [_ for _ in range(len(order_grads))]
@@ -193,7 +201,8 @@ class Server(Base_Server):
         order = [x[1] for x in temp]
         keep_original = []
         if self.alpha > 0:
-            keep_original = order[math.ceil((len(order) - 1) * (1 - self.alpha)) :]
+            keep_original = order[math.ceil(
+                (len(order) - 1) * (1 - self.alpha)):]
         g_locals_l2_norm = []
         for g_l in g_locals:
             g_locals_l2_norm.append(torch.norm(g_l) ** 2)
@@ -206,7 +215,8 @@ class Server(Base_Server):
                 else:
                     dot = g_locals[j] @ order_grads[i]
                     if dot < 0:
-                        order_grads[i] -= dot / g_locals_l2_norm[j] * g_locals[j]
+                        order_grads[i] -= dot / \
+                            g_locals_l2_norm[j] * g_locals[j]
         weights = (
             torch.Tensor([1 / len(order_grads)] * len(order_grads))
             .float()

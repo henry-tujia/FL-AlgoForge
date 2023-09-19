@@ -3,6 +3,7 @@ Code credit to https://github.com/QinbinLi/MOON
 for implementation of thier method, MOON.
 """
 import numpy as np
+import pandas
 import torch
 
 # import logging
@@ -13,8 +14,10 @@ from torch.multiprocessing import current_process
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
-        self.prev_model = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
+        self.prev_model = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
         self.global_model = self.model_type(**client_dict["model_paras"]).to(
             self.device
         )
@@ -57,7 +60,8 @@ class Client(Base_Client):
             weights = self.train()
             # last_round = self.get_last_round(client_idx)
             if self.args.local_valid:  # and self.round == last_round:
-                self.weight_test = self.get_cdist_test(client_idx).reshape((1, -1))
+                self.weight_test = self.get_cdist_test(
+                    client_idx).reshape((1, -1))
                 self.acc_dataloader = self.test_dataloader
                 after_test_acc = self.test()
             else:
@@ -80,6 +84,7 @@ class Client(Base_Client):
         return client_results
 
     def train(self):
+        #list_for_df = []
         # train the local model
         self.model.to(self.device)
         self.global_model.to(self.device)
@@ -117,7 +122,7 @@ class Client(Base_Client):
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -125,6 +130,11 @@ class Client(Base_Client):
                         self.client_map[self.round],
                     )
                 )
+                #list_for_df.append(
+                    #[self.round, epoch, sum(epoch_loss) / len(epoch_loss)])
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients" /
+                         #"dfs"/f"{self.client_index}.xlsx")
         weights = self.model.cpu().state_dict()
         # self.prev_model.load_state_dict(weights)
         return weights
@@ -164,7 +174,7 @@ class Client(Base_Client):
             else:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         weighted_acc = acc.reshape((1, -1)).mean()
-        self.loggers[self.client_idx].info(
+        self.logger.info(
             "************* Client {} Acc = {:.2f} **************".format(
                 self.client_index, weighted_acc.item()
             )
@@ -184,12 +194,13 @@ class Server(Base_Server):
     def run(self, received_info):
         server_outputs = self.operations(received_info)
         acc = self.test()
-        self.logger = self.logger_method(self.args.save_path, "server", "server")
+        self.logger = self.logger_method(
+            self.args.save_path, "server", "server")
         self.log_info(received_info, acc)
         self.round += 1
         if acc > self.acc:
             torch.save(
-                self.model.state_dict(), "{}/{}.pt".format(self.save_path, "server")
+                self.model.state_dict(), "{}/{}.pt".format(self.args.save_path, "server")
             )
             self.acc = acc
         for x in received_info:

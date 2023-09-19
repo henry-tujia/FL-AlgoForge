@@ -3,7 +3,7 @@ import torch.nn as nn
 
 # import logging
 from methods.base import Base_Client, Base_Server
-import copy
+import pandas
 from torch.multiprocessing import current_process
 
 
@@ -38,7 +38,8 @@ class FedDecorrLoss(nn.Module):
 class Client(Base_Client):
     def __init__(self, client_dict, args):
         super().__init__(client_dict, args)
-        self.model = self.model_type(**client_dict["model_paras"]).to(self.device)
+        self.model = self.model_type(
+            **client_dict["model_paras"]).to(self.device)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.SGD(
             self.model.parameters(),
@@ -51,6 +52,7 @@ class Client(Base_Client):
         self.extra_loss = FedDecorrLoss()
 
     def train(self):
+        #list_for_df = []
         # train the local model
         self.model.to(self.device)
         self.model.train()
@@ -73,7 +75,7 @@ class Client(Base_Client):
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -81,7 +83,11 @@ class Client(Base_Client):
                         self.client_map[self.round],
                     )
                 )
+                #list_for_df.append(
+                    #[self.round, epoch, sum(epoch_loss) / len(epoch_loss)])
         weights = self.model.cpu().state_dict()
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients"/#"dfs"/f"{self.client_index}.xlsx")
         return weights
 
 

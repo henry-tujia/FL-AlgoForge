@@ -9,6 +9,7 @@ from models.resnet_balance import (
 from torch.multiprocessing import current_process
 import numpy as np
 import copy
+import pandas
 
 
 class Client(Base_Client):
@@ -53,6 +54,7 @@ class Client(Base_Client):
         self.model.load_state_dict(paras_old)
 
     def train(self):
+        #list_for_df = []
         cdist = self.get_cdist(self.client_index)
         # train the local model
         self.model.to(self.device)
@@ -86,7 +88,7 @@ class Client(Base_Client):
             # self.model.change_paras()
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "(Local Training Epoch: {} \tLoss: {:.6f}  Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -94,7 +96,10 @@ class Client(Base_Client):
                         self.client_map[self.round],
                     )
                 )
-
+                ##list_for_df.append(
+                #[self.round, epoch, sum(epoch_loss) / len(epoch_loss)])
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients"/#"dfs"/f"{self.client_index}.xlsx")
         weights = {key: value for key, value in self.model.cpu().state_dict().items()}
         return weights
 
@@ -138,7 +143,7 @@ class Client(Base_Client):
             else:
                 acc = torch.concat((acc, temp_acc.reshape((1, -1))), dim=0)
         weighted_acc = acc.reshape((1, -1)).mean()
-        self.loggers[self.client_idx].info(
+        self.logger.info(
             "************* Client {} Acc = {:.2f} **************".format(
                 self.client_index, weighted_acc.item()
             )

@@ -358,8 +358,8 @@ def get_client_dataloader(data_dir, batch_size, net_dataidx_map, val_batchsize=1
         # val_data_local, test_data_local = get_dataloader("", data_dir, val_batchsize, val_batchsize,
         #                                          val_idx)
 
-        logging.info("train batch: {0},val batch: {1}".format(
-            len(train_data_local), len(test_data_local)))
+        # logging.info("train batch: {0},val batch: {1}".format(
+        #     len(train_data_local), len(test_data_local)))
         return train_data_local, test_data_local
     else:
         train_data_global, test_data_global = get_dataloader(

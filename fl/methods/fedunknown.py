@@ -3,6 +3,7 @@ Code credit to https://github.com/QinbinLi/MOON
 for thier implementation of FedProx.
 """
 
+import pandas
 import torch
 import torch.nn as nn
 
@@ -56,6 +57,7 @@ class Client(Base_Client):
         self.extra_loss = FedDecorrLoss()
 
     def train(self):
+        #list_for_df = []
         # train the local model
         self.model.to(self.device)
         self.model.train()
@@ -82,7 +84,7 @@ class Client(Base_Client):
                 batch_loss.append(loss.item())
             if len(batch_loss) > 0:
                 epoch_loss.append(sum(batch_loss) / len(batch_loss))
-                self.loggers[self.client_idx].info(
+                self.logger.info(
                     "(Local Training Epoch: {} \tLoss: {:.6f} DC: {:.6f} Thread {}  Map {}".format(
                         epoch,
                         sum(epoch_loss) / len(epoch_loss),
@@ -91,6 +93,10 @@ class Client(Base_Client):
                         self.client_map[self.round],
                     )
                 )
+                #list_for_df.append(
+                # [self.round, epoch, sum(epoch_loss) / len(epoch_loss),sum(epoch_DC) / len(epoch_DC)])
+        #df_save = pandas.DataFrame(list_for_df)
+        #df_save.to_excel(self.args.save_path/"clients"/#"dfs"/f"{self.client_index}.xlsx")
         weights = self.model.cpu().state_dict()
         return weights
 
