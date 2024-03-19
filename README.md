@@ -73,12 +73,15 @@ FedAvg is a federated learning algorithm that trains models on multiple devices 
 
 ### FedProx
 
-Description of the ABC Algorithm, its key features, and any specific use cases where it performs well.
+FedProx is a federated learning algorithm that addresses the challenges of data heterogeneity in distributed networks. It incorporates a regularization term to improve the performance of the global model by penalizing the divergence between local models and the global model during the aggregation process.
+$$f_i(w) = l(x_i, y_i, w) + (\mu/2) * ||w - w_t||^2$$
 
 [[paper link]](https://arxiv.org/pdf/1812.06127)
 ### MOON
 
-Explanation of the PQR Algorithm, including its limitations and potential applications.
+The key idea of MOON is to utilize the similarity between model representations to correct the local training of individual parties. This is achieved by conducting contrastive learning in the model-level. MOON aims to maximize the agreement between the representation learned by the current local model and the representation learned by the global model. 
+$$ℓ_{con} = -log(exp(sim(z, z_glob) / τ) / (exp(sim(z, z_glob) / τ) \\+ exp(sim(z, z_prev) / τ)))$$
+$$ℓ = ℓ_{sup}(w_i^t; (x, y)) + \mu ℓ_{con}(w_i^t; w_i^{t-1}; w^t; x)$$
 
 [[paper link]](https://arxiv.org/pdf/2103.16257.pdf) [[code link]](https://github.com/QinbinLi/MOON)
 ## Contribution
