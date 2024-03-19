@@ -68,15 +68,18 @@ CONFIG
 ### FedAvg
 
 FedAvg is a federated learning algorithm that trains models on multiple devices or machines, performs local updates on each device, and then averages the updated model parameters to achieve global model updates.
+
 [[paper link]](https://arxiv.org/pdf/1602.05629v1/1000)
 
 ### FedProx
 
 Description of the ABC Algorithm, its key features, and any specific use cases where it performs well.
+
 [[paper link]](https://arxiv.org/pdf/1812.06127)
 ### MOON
 
 Explanation of the PQR Algorithm, including its limitations and potential applications.
+
 [[paper link]](https://arxiv.org/pdf/2103.16257.pdf) [[code link]](https://github.com/QinbinLi/MOON)
 ## Contribution
 
