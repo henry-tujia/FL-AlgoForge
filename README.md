@@ -42,21 +42,21 @@ Please refer to the respective files and directories mentioned above for detaile
 ```
 CONFIG
 ├── federated_settings
-│   └── comm_round: 200                                                                                         
-│       client_sample: 0.1                                                                                      
-│       client_number: 100                                                                                      
-│       thread_number: 10                                                                                                                                                                                         
+│   └── comm_round: 200 
+│       client_sample: 0.1
+│       client_number: 100
+│       thread_number: 10
 ├── local_setting
-│   └── lr: 0.01                                                                                                
-│       wd: 0.0001                                                                                              
-│       epochs: 10                                                                                              
-│       local_valid: false                                                                                                                                                                                                
+│   └── lr: 0.01
+│       wd: 0.0001
+│       epochs: 10
+│       local_valid: false
 └── datasets
-    └── dataset: cifar10                                                                                      
-        batch_size: 64                                                                                          
-        num_classes: 10                                                                                         
-        partition_method: hetero                                                                                
-        partition_alpha: 0.1  
+    └── dataset: cifar10
+        batch_size: 64  
+        num_classes: 10 
+        partition_method: hetero
+        partition_alpha: 0.1
 ```
 
 | Method     | Accuracy | Training Time  |
