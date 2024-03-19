@@ -1,0 +1,11 @@
+method_name: feddecorr
+hyperparams:
+  mu : 0.1
+
+# #model parameters
+model_init_params:
+  #for resnet
+  KD: true
+  projection: false
+  #for vim
+  pretrained: null

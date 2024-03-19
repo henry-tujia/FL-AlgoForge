@@ -1,0 +1,14 @@
+method_name: central
+
+# For Federated Learning
+comm_round : 200
+client_sample : 1
+client_number : 1
+thread_number : 1
+
+# For Local Training
+lr : 0.01
+wd : 0.0001
+epochs: 10
+local_valid: False
+

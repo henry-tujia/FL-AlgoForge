@@ -1,0 +1,33 @@
+method_name: dynafed
+
+#hyperparameters
+hyperparams:
+  L : 25
+  syn_steps : 20
+  min_start_epoch : 0
+  max_start_epoch : 50
+  expert_epochs : 3
+  weight_averaging : true
+  least_ave_num : 2
+  max_ave_num : 10
+  random_weights : true
+  label_init : 0
+  ipc : 15
+  batch_syn : 10
+  Iteration : 3000
+  lr_teacher: 0.01
+  img_optim: "adam"
+  lr_img: 5e-2
+  lr_label: 1e-5
+  lr_optim: "sgd"
+  lr_lr: 1e-5
+  dsa: true
+  dsa_strategy: "color_crop_cutout_flip_scale_rotate"
+
+# #model parameters
+model_init_params:
+  #for resnet
+  KD: false
+  projection: false
+  #for vim
+  pretrained: null

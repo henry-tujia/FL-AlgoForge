@@ -1,0 +1,3 @@
+_target_: src.models.vit.Vit
+model_type: torchvision.models.vision_transformer.vit_b_32
+pretrain: null

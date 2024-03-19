@@ -1,0 +1,50 @@
+# @package _global_
+# For Federated Learning
+federated_settings:
+  comm_round : 200
+  client_sample : 0.1
+  client_number : 100
+  thread_number : 10
+
+
+local_setting:
+  lr : 0.01
+  wd : 0.0001
+  epochs: 10
+  local_valid: False
+
+
+defaults:
+  - _self_
+  - method: fedavg
+  - paths: default
+  - hydra: default
+  - datasets: cifar10
+  - models: resnet8
+  - debug: null
+
+
+device: cuda
+
+# task name, determines output directory path
+task_name: "train"
+
+# tags to help you identify your experiments
+# you can overwrite this in experiment configs
+# overwrite from command line with `python train.py tags="[first_tag, second_tag]"`
+tags: ["dev"]
+
+# set False to skip model training
+train: True
+
+# evaluate on test set, using best model weights achieved during training
+# lightning chooses best weights based on the metric specified in checkpoint callback
+test: True
+
+# simply provide checkpoint path to resume training
+ckpt_path: null #"/vepfs/DI/user/haotan/RL/lightning-hydra-template-main/logs/train/runs/2023-11-24_13-18-22/checkpoints/last.ckpt" #null #"/vepfs/DI/user/haotan/RL/lightning-hydra-template-main/logs/train/runs/2023-11-24_06-21-37/checkpoints/epoch_185.ckpt"
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: null
+
+save_path: ${hydra:runtime.output_dir}

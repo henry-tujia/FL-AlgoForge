@@ -1,10 +1,10 @@
-data/
 __pycache__
-logs/
+logs/*
 wandb/
 .vscode/
-ipynb/.ipynb_checkpoints
-save/
 ipynb/
+datasets/*
 graduate/
-script/
+.hypothesis/
+checkpoints/
+.gitignore

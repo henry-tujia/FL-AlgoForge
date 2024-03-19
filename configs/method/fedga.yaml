@@ -1,0 +1,14 @@
+method_name: fedga
+hyperparams:
+  eps : 8/255
+  grad_align_cos_lambda : 0.5
+  grad_align_cos_lambda2 : 0.2
+  temp : 0.5
+
+# #model parameters
+model_init_params:
+  #for resnet
+  KD: false
+  projection: false
+  #for vim
+  pretrained: null

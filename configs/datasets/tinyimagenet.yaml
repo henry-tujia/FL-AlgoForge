@@ -1,0 +1,6 @@
+dataset: "tinyimagenet"
+datadir: ${paths.data_dir}/${datasets.dataset}
+batch_size: 64
+num_classes: 200
+partition_method: "hetero"
+partition_alpha: 0.1
