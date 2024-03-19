@@ -35,10 +35,6 @@ A repository for implementing and reproducing classic federated learning methods
 
 Please refer to the respective files and directories mentioned above for detailed instructions, and make the necessary changes according to your needs.
 
-## Architecture
-
-🏛️ The overall architecture of the federated learning system, illustrating the communication and data exchange between the central server and clients. Refer to the provided diagrams for a better understanding.
-
 ## Performance Summary
 
 🔍 Explore examples showcasing algorithm performance and training time. The table below presents accuracy and training time for each algorithm.
@@ -69,18 +65,19 @@ CONFIG
 | FedProx    | 38.08%   | 8.68 seconds/round              |
 | MOON       | 89%      | 1.5 hours/round                 |
 
-### XYZ Algorithm
+### FedAvg
 
-Description of the XYZ Algorithm, its advantages, and how it can be used effectively.
+FedAvg is a federated learning algorithm that trains models on multiple devices or machines, performs local updates on each device, and then averages the updated model parameters to achieve global model updates.
+[[paper link]](https://arxiv.org/pdf/1602.05629v1/1000)
 
-### ABC Algorithm
+### FedProx
 
 Description of the ABC Algorithm, its key features, and any specific use cases where it performs well.
-
-### PQR Algorithm
+[[paper link]](https://arxiv.org/pdf/1812.06127)
+### MOON
 
 Explanation of the PQR Algorithm, including its limitations and potential applications.
-
+[[paper link]](https://arxiv.org/pdf/2103.16257.pdf) [[code link]](https://github.com/QinbinLi/MOON)
 ## Contribution
 
 🤝 Contributions to the project are welcome! Please follow the guidelines below:
@@ -100,3 +97,5 @@ Explanation of the PQR Algorithm, including its limitations and potential applic
 - [FedAlign](https://github.com/mmendiet/FedAlign) - Official repository for Local Learning Matters: Rethinking Data Heterogeneity in Federated Learning [CVPR 2022 Oral, Best Paper Finalist]
 
 - [FedML](https://github.com/FedML-AI/FedML) - The unified and scalable ML library for large-scale distributed training, model serving, and federated learning. FEDML Launch, a cross-cloud scheduler, further enables running any AI jobs on any GPU cloud or on-premise cluster. Built on this library, FEDML Nexus AI (https://fedml.ai) is the dedicated cloud service for generative AI.
+
+- [MOON](https://github.com/QinbinLi/MOON) - Model-Contrastive Federated Learning (CVPR 2021)
