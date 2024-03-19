@@ -39,15 +39,35 @@ Please refer to the respective files and directories mentioned above for detaile
 
 🏛️ The overall architecture of the federated learning system, illustrating the communication and data exchange between the central server and clients. Refer to the provided diagrams for a better understanding.
 
-## Examples
+## Performance Summary
 
-🔍 Explore additional examples to demonstrate various use cases and functionalities supported by the repository. Examples include code snippets, dataset usage, and model training and aggregation demonstrations.
+🔍 Explore examples showcasing algorithm performance and training time. The table below presents accuracy and training time for each algorithm.
 
-| Method          | Accuracy | Training Time |
-|-----------------|----------|---------------|
-| **XYZ Algorithm** | **95%**  | **2 hours**   |
-| ABC Algorithm   | 92%      | 3.5 hours     |
-| PQR Algorithm   | 89%      | 1.5 hours     |
+```
+CONFIG
+├── federated_settings
+│   └── comm_round: 200                                                                                         
+│       client_sample: 0.1                                                                                      
+│       client_number: 100                                                                                      
+│       thread_number: 10                                                                                                                                                                                         
+├── local_setting
+│   └── lr: 0.01                                                                                                
+│       wd: 0.0001                                                                                              
+│       epochs: 10                                                                                              
+│       local_valid: false                                                                                                                                                                                                
+└── datasets
+    └── dataset: cifar10                                                                                      
+        batch_size: 64                                                                                          
+        num_classes: 10                                                                                         
+        partition_method: hetero                                                                                
+        partition_alpha: 0.1  
+```
+
+| Method     | Accuracy | Training Time  |
+|------------|----------|---------------------------|
+| FedAvg     | 45.91%   | 8.69 seconds/round              |
+| FedProx    | 38.08%   | 8.68 seconds/round              |
+| MOON       | 89%      | 1.5 hours/round                 |
 
 ### XYZ Algorithm
 
@@ -73,16 +93,10 @@ Explanation of the PQR Algorithm, including its limitations and potential applic
 
 ⚖️ This project is licensed under the [MIT License](LICENSE.md). Make sure to review the license terms and conditions.
 
-## Maintainers
-
-👥 For any inquiries or support, feel free to reach out to the maintainers:
-
-- [Maintainer Name](mailto:maintainer@example.com) - [GitHub](https://github.com/maintainer)
-
 ## Acknowledgements
 
 🙏 Special thanks to the following individuals and organizations for their contributions and inspiration:
 
-- [Name/Organization](https://github.com/example) - Description of their contribution or inspiration
+- [FedAlign](https://github.com/mmendiet/FedAlign) - Official repository for Local Learning Matters: Rethinking Data Heterogeneity in Federated Learning [CVPR 2022 Oral, Best Paper Finalist]
 
-Make sure to acknowledge anyone who has significantly contributed to your project.
+- [FedML](https://github.com/FedML-AI/FedML) - The unified and scalable ML library for large-scale distributed training, model serving, and federated learning. FEDML Launch, a cross-cloud scheduler, further enables running any AI jobs on any GPU cloud or on-premise cluster. Built on this library, FEDML Nexus AI (https://fedml.ai) is the dedicated cloud service for generative AI.
