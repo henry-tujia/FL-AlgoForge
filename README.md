@@ -80,7 +80,7 @@ $$f_i(w) = l(x_i, y_i, w) + (\mu/2) * ||w - w_t||^2$$
 ### MOON
 
 The key idea of MOON is to utilize the similarity between model representations to correct the local training of individual parties. This is achieved by conducting contrastive learning in the model-level. MOON aims to maximize the agreement between the representation learned by the current local model and the representation learned by the global model. 
-$$ℓ_{con} = -log(exp(sim(z, z_glob) / τ) / (exp(sim(z, z_glob) / τ) \\+ exp(sim(z, z_prev) / τ)))$$
+$$ℓ_{con} = -log(exp(sim(z, z_glob) / τ) / (exp(sim(z, z_glob) / τ) + exp(sim(z, z_prev) / τ)))$$
 $$ℓ = ℓ_{sup}(w_i^t; (x, y)) + \mu ℓ_{con}(w_i^t; w_i^{t-1}; w^t; x)$$
 
 [[paper link]](https://arxiv.org/pdf/2103.16257.pdf) [[code link]](https://github.com/QinbinLi/MOON)
