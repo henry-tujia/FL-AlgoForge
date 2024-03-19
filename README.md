@@ -1,4 +1,4 @@
-# Project Name
+# FL-AlgoForge
 
 📚 **Federated Learning Repository**
 
@@ -8,26 +8,32 @@ A repository for implementing and reproducing classic federated learning methods
 
 🔧 Use the following steps to install the project:
 
-1. Clone the repository: `git clone https://github.com/your/repository.git`
-2. Navigate to the project directory: `cd repository`
-3. Install dependencies: `pip install -r requirements.txt`
+1. Clone the repository: `git clone https://github.com/henry-tujia/FL-AlgoForge.git`
+2. Navigate to the project directory: `cd FL-AlgoForge`
+3. Install [hatch](https://github.com/pypa/hatch) and initialize the project: `pip install hatch&&hatch new --init`
+4. Switch Python environment: `hatch shell`.
+5. Install  and dependencies: `pip install -r requirements.txt`
 
 ## Quick Start
 
 🚀 Follow the steps below to quickly get started:
 
-1. Start the central server and initialize the federated learning environment.
-2. Launch client processes for training using multiprocessing.
-3. Perform model aggregation with the central server.
-4. Refer to the provided example code to understand how to use the repository effectively.
+1. Set the dataset directory in `configs/datasets/cifar10.yaml` (recommended for quick start with Cifar10).
+2. Launch training using multiprocessing: `python main.py method=fedavg models=resnet8`.
+3. Check the results in the `logs` folder or use wandb to track the results.
+
 
 ## Usage
 
 📘 Detailed instructions on how to use the repository:
 
-1. Configuration: Customize the settings, including parameters and environment variables, to fit your requirements.
-2. API Interfaces: Familiarize yourself with the available API interfaces for communication and data exchange.
-3. Custom Operations: Learn how to implement and use custom operations to extend the functionality of the federated learning process.
+1. Configuration: Customize the settings by changing the YAML files in the `configs/` directory. These files contain parameters and federated settings that can be adjusted to fit your requirements.
+
+2. Dataset Partitioning: To implement custom dataset partitioning, modify the dataset code in `src/data_preprocessing/${dataset}/data_loader.py`. This file handles the data loading process, and you can modify it to support your desired data splitting method. Currently, it supports partitioning client subdatasets based on the dataset's indices (`idxs`).
+
+3. Algorithm Customization: To customize the algorithm, you can inherit from the `Base_Client` and `Base_Server` classes defined in `src/methods/base.py`. By inheriting from these base classes, you can make the necessary modifications to tailor the algorithm to your specific requirements.
+
+Please refer to the respective files and directories mentioned above for detailed instructions, and make the necessary changes according to your needs.
 
 ## Architecture
 
