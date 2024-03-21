@@ -59,11 +59,11 @@ CONFIG
         partition_alpha: 0.1
 ```
 
-| Method     | Accuracy | Training Time  |
-|------------|----------|---------------------------|
-| FedAvg     | 45.91%   | 8.69 seconds/round              |
-| FedProx    | 38.08%   | 8.68 seconds/round              |
-| MOON       | 89%      | 1.5 hours/round                 |
+| Method     |hyper params| Accuracy | Training Time  |
+|------------|----------|----------|---------------------------|
+| FedAvg     | -         | 45.91%   | 8.69 seconds/round              |
+| FedProx    | $\mu=0.001$          | 38.08%   | 8.68 seconds/round              |
+| MOON       | $temp=0.5,\mu=1$            | 36.67%      | 11.8 seconds/round                 |
 
 ### FedAvg
 
