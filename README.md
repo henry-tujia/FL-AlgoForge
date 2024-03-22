@@ -64,6 +64,7 @@ CONFIG
 | FedAvg     | -         | 45.91%   | 8.69 seconds/round              |
 | FedProx    | $\mu=0.001$          | 38.08%   | 8.68 seconds/round              |
 | MOON       | $temp=0.5,\mu=1$            | 36.67%      | 11.8 seconds/round                 |
+| MOON       | $temp=0.5,\mu=0.5$            | 45.37%      | 11.8 seconds/round                 |
 
 ### FedAvg
 
